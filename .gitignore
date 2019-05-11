@@ -1,0 +1,6 @@
+Exports/
+.venv/
+*.egg-info/
+config.ini
+tags
+*.csv
