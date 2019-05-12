@@ -6,15 +6,31 @@ import time
 import argparse
 import configparser
 import requests
-import html
 import datetime
 import pandas as pd
+import unicodedata
+import re
 from pathlib import Path
 
 logger = logging.getLogger()
 logging.getLogger('requests').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 temps_debut = time.time()
+
+
+def slugify(value, allow_unicode=False):
+    """
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces to hyphens.
+    Remove characters that aren't alphanumerics, underscores, or hyphens.
+    Convert to lowercase. Also strip leading and trailing whitespace.
+    """
+    value = str(value)
+    if allow_unicode:
+        value = unicodedata.normalize('NFKC', value)
+    else:
+        value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
+    value = re.sub(r'[^\w\s-]', '', value).strip().lower()
+    return re.sub(r'[-\s]+', '-', value)
 
 
 def main():
@@ -33,7 +49,11 @@ def main():
     logger.debug("Reading config file")
     config = configparser.ConfigParser()
     config.read('config.ini')
-    api_key = config['steam']['api_key']
+    try:
+        api_key = config['steam']['api_key']
+    except Exception as e:
+        logger.error("Problem with the config file.")
+        exit()
 
     logger.debug("Reading CSV file")
     df = pd.read_csv(file, sep='\t|;', engine='python')
@@ -55,7 +75,7 @@ def main():
             info_dict = requests.get(url_info_game).json()
             info_dict = info_dict[str(game_id)]['data']
 
-            game_dict['name'] = html.unescape(info_dict['name'].strip())
+            game_dict['name'] = info_dict['name'].strip()
             game_dict['type'] = info_dict['type']
             game_dict['required_age'] = info_dict['required_age']
             game_dict['is_free'] = info_dict['is_free']
@@ -91,7 +111,7 @@ def main():
             # have to put the dict in a list for some reason
             df = pd.DataFrame([game_dict], index=[0])
             if game_dict.get('name'):
-                filename = f"Exports/{game_id}_{game_dict['name']}.csv"
+                filename = f"Exports/{game_id}_{slugify(game_dict['name'])}.csv"
             else:
                 filename = f"Exports/{game_id}.csv"
             if not Path(filename).is_file():

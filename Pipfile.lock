@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "deabd9adf845864d1042a766f7740a3720c35fd16e6256947ea6699dea65e9fe"
+            "sha256": "ceb3962f8c97482f35866ed0c49e59a787046369ef105ac1c9305a4f78517efd"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -282,6 +282,18 @@
                 "sha256:401643eca16859125d6c844436cb969e9ac9d8d7e3533df2a18615740d7cddce"
             ],
             "version": "==0.9.0"
+        },
+        "steam-stats": {
+            "editable": true,
+            "path": "."
+        },
+        "unicode": {
+            "hashes": [
+                "sha256:50ffc265ef115e420194338879b8ca260b0d78a1c91e149cc36a3a33f1341adc",
+                "sha256:72e4083667dd4180015c86f640e826d3f57bb10f8f16a33b3eca12aa0390f58b"
+            ],
+            "index": "pypi",
+            "version": "==2.7"
         },
         "urllib3": {
             "hashes": [
