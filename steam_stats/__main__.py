@@ -84,8 +84,8 @@ def main():
                 game_dict['type'] = info_dict['type']
                 game_dict['required_age'] = info_dict['required_age']
                 game_dict['is_free'] = info_dict['is_free']
-                game_dict['developers'] = info_dict['developers']
-                game_dict['publishers'] = info_dict['publishers']
+                game_dict['developers'] = ', '.join(info_dict['developers'])
+                game_dict['publishers'] = ', '.join(info_dict['publishers'])
                 game_dict['windows'] = info_dict['platforms']['windows']
                 game_dict['linux'] = info_dict['platforms']['linux']
                 game_dict['mac'] = info_dict['platforms']['mac']
@@ -128,7 +128,14 @@ def main():
 
     df = pd.DataFrame(game_dict_list)
 
-    df.to_csv("Exports/game_info.csv", sep='\t', index=False)
+    logger.debug("Writing complete export game_info.csv")
+
+    filename = "Exports/game_info.csv"
+    if not Path(filename).is_file():
+        df.to_csv(filename, sep='\t', index=False)
+    else:
+        with open(filename, 'a') as f:
+            df.to_csv(f, sep='\t', index=False, header=False)
     logger.info("Runtime : %.2f seconds" % (time.time() - temps_debut))
 
 
