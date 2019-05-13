@@ -69,14 +69,20 @@ def main():
         auj = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         game_dict['export_date'] = auj
         game_dict['appid'] = game_id
-        try:
-            url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
-            info_dict = requests.get(url_info_game).json()
-            success = info_dict[str(game_id)]['success']
-            logger.debug(f"ID {game_id} - success : {success}")
-            info_dict = info_dict[str(game_id)]['data']
-        except Exception as e:
-            logger.error(f"Can't extract page for ID {game_id} - {url_info_game} : {e}")
+        success = 'NA'
+        n_tries = 0
+        while True:
+            n_tries += 1
+            try:
+                url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
+                info_dict = requests.get(url_info_game).json()
+                success = info_dict[str(game_id)]['success']
+                logger.debug(f"ID {game_id} - success : {success}")
+                info_dict = info_dict[str(game_id)]['data']
+            except Exception as e:
+                logger.error(f"Can't extract page for ID {game_id} - {url_info_game} : {e}")
+            if type(success) == bool or n_tries > 10:
+                break
         if success:
             try:
                 game_dict['name'] = info_dict['name'].strip()
@@ -125,6 +131,7 @@ def main():
                     logger.debug(f"Writing file {filename}")
                     with open(filename, 'a') as f:
                         df.to_csv(f, sep='\t', header=False, index=False)
+        time.sleep(2)
 
     df = pd.DataFrame(game_dict_list)
 
