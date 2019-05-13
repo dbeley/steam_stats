@@ -69,59 +69,62 @@ def main():
         auj = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         game_dict['export_date'] = auj
         game_dict['appid'] = game_id
-
         try:
             url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
             info_dict = requests.get(url_info_game).json()
+            success = info_dict[str(game_id)]['success']
+            logger.debug(f"ID {game_id} - success : {success}")
             info_dict = info_dict[str(game_id)]['data']
-
-            game_dict['name'] = info_dict['name'].strip()
-            game_dict['type'] = info_dict['type']
-            game_dict['required_age'] = info_dict['required_age']
-            game_dict['is_free'] = info_dict['is_free']
-            game_dict['developers'] = info_dict['developers']
-            game_dict['publishers'] = info_dict['publishers']
-            game_dict['windows'] = info_dict['platforms']['windows']
-            game_dict['linux'] = info_dict['platforms']['linux']
-            game_dict['mac'] = info_dict['platforms']['mac']
-            game_dict['genres'] = info_dict['genres']
-            game_dict['release_date'] = info_dict['release_date']['date']
-            logger.debug(f"Game {game_dict['name']} - ID {game_id} : {url_info_game}")
         except Exception as e:
-            logger.error(f"ID {game_id} - {url_info_game} : {e}")
+            logger.error(f"Can't extract page for ID {game_id} - {url_info_game} : {e}")
+        if success:
+            try:
+                game_dict['name'] = info_dict['name'].strip()
+                logger.debug(f"Game {game_dict['name']} - ID {game_id} : {url_info_game}")
+                game_dict['type'] = info_dict['type']
+                game_dict['required_age'] = info_dict['required_age']
+                game_dict['is_free'] = info_dict['is_free']
+                game_dict['developers'] = info_dict['developers']
+                game_dict['publishers'] = info_dict['publishers']
+                game_dict['windows'] = info_dict['platforms']['windows']
+                game_dict['linux'] = info_dict['platforms']['linux']
+                game_dict['mac'] = info_dict['platforms']['mac']
+                game_dict['genres'] = info_dict['genres']
+                game_dict['release_date'] = info_dict['release_date']['date']
+            except Exception as e:
+                logger.error(f"ID {game_id} - {url_info_game} : {e}")
 
-        try:
-            url_reviews = f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
-            reviews_dict = requests.get(url_reviews).json()
-            reviews_dict = reviews_dict['query_summary']
+            try:
+                url_reviews = f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
+                reviews_dict = requests.get(url_reviews).json()
+                reviews_dict = reviews_dict['query_summary']
 
-            game_dict['num_reviews'] = reviews_dict['num_reviews']
-            game_dict['review_score'] = reviews_dict['review_score']
-            game_dict['review_score_desc'] = reviews_dict['review_score_desc']
-            game_dict['total_positive'] = reviews_dict['total_positive']
-            game_dict['total_negative'] = reviews_dict['total_negative']
-            game_dict['total_reviews'] = reviews_dict['total_reviews']
-        except Exception as e:
-            logger.debug(f"url_reviews - {url_reviews} : {e}")
+                game_dict['num_reviews'] = reviews_dict['num_reviews']
+                game_dict['review_score'] = reviews_dict['review_score']
+                game_dict['review_score_desc'] = reviews_dict['review_score_desc']
+                game_dict['total_positive'] = reviews_dict['total_positive']
+                game_dict['total_negative'] = reviews_dict['total_negative']
+                game_dict['total_reviews'] = reviews_dict['total_reviews']
+            except Exception as e:
+                logger.error(f"url_reviews - {url_reviews} : {e}")
 
-        game_dict_list.append(game_dict)
+            game_dict_list.append(game_dict)
 
-        logger.debug(f"{game_dict}")
-        if separate_export:
-            # have to put the dict in a list for some reason
-            df = pd.DataFrame([game_dict], index=[0])
-            if game_dict.get('name'):
-                filename = f"Exports/{game_id}_{slugify(game_dict['name'])}.csv"
-            else:
-                filename = f"Exports/{game_id}.csv"
-            if not Path(filename).is_file():
-                logger.debug(f"Writing new file {filename}")
-                with open(filename, 'w') as f:
-                    df.to_csv(f, sep='\t', index=False)
-            else:
-                logger.debug(f"Writing file {filename}")
-                with open(filename, 'a') as f:
-                    df.to_csv(f, sep='\t', header=False, index=False)
+            if separate_export:
+                # have to put the dict in a list for some reason
+                df = pd.DataFrame([game_dict], index=[0])
+                if game_dict.get('name'):
+                    filename = f"Exports/{game_id}_{slugify(game_dict['name'])}.csv"
+                else:
+                    filename = f"Exports/{game_id}.csv"
+                if not Path(filename).is_file():
+                    logger.debug(f"Writing new file {filename}")
+                    with open(filename, 'w') as f:
+                        df.to_csv(f, sep='\t', index=False)
+                else:
+                    logger.debug(f"Writing file {filename}")
+                    with open(filename, 'a') as f:
+                        df.to_csv(f, sep='\t', header=False, index=False)
 
     df = pd.DataFrame(game_dict_list)
 
