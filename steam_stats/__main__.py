@@ -43,7 +43,7 @@ def main():
         exit()
 
     if not Path(file).is_file():
-        logger.error(f"{file} is not a file. Exiting.")
+        logger.error("%s is not a file. Exiting.", file)
         exit()
 
     logger.debug("Reading config file")
@@ -57,7 +57,7 @@ def main():
 
     logger.debug("Reading CSV file")
     df = pd.read_csv(file, sep='\t|;', engine='python')
-    logger.debug(f"Columns : {df.columns}")
+    logger.debug("Columns : %s", df.columns)
 
     ids = df.appid.tolist()
 
@@ -77,16 +77,16 @@ def main():
                 url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
                 info_dict = requests.get(url_info_game).json()
                 success = info_dict[str(game_id)]['success']
-                logger.debug(f"ID {game_id} - success : {success}")
+                logger.debug("ID %s - success : %s", game_id, success)
                 info_dict = info_dict[str(game_id)]['data']
             except Exception as e:
-                logger.error(f"Can't extract page for ID {game_id} - {url_info_game} : {e}")
+                logger.error("Can't extract page for ID %s - %s : %s", game_id, url_info_game, e)
             if type(success) == bool or n_tries > 10:
                 break
         if success:
             try:
                 game_dict['name'] = info_dict['name'].strip()
-                logger.debug(f"Game {game_dict['name']} - ID {game_id} : {url_info_game}")
+                logger.debug("Game %s - ID %s : %s", game_dict['name'], game_id, url_info_game)
                 game_dict['type'] = info_dict['type']
                 game_dict['required_age'] = info_dict['required_age']
                 game_dict['is_free'] = info_dict['is_free']
@@ -98,7 +98,7 @@ def main():
                 game_dict['genres'] = info_dict['genres']
                 game_dict['release_date'] = info_dict['release_date']['date']
             except Exception as e:
-                logger.error(f"ID {game_id} - {url_info_game} : {e}")
+                logger.error("ID %s - %s : %s", game_id, url_info_game, e)
 
             try:
                 url_reviews = f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
@@ -112,7 +112,7 @@ def main():
                 game_dict['total_negative'] = reviews_dict['total_negative']
                 game_dict['total_reviews'] = reviews_dict['total_reviews']
             except Exception as e:
-                logger.error(f"url_reviews - {url_reviews} : {e}")
+                logger.error("url_reviews - %s : %s", url_reviews, e)
 
             game_dict_list.append(game_dict)
 
@@ -124,11 +124,11 @@ def main():
                 else:
                     filename = f"Exports/{game_id}.csv"
                 if not Path(filename).is_file():
-                    logger.debug(f"Writing new file {filename}")
+                    logger.debug("Writing new file %s", filename)
                     with open(filename, 'w') as f:
                         df.to_csv(f, sep='\t', index=False)
                 else:
-                    logger.debug(f"Writing file {filename}")
+                    logger.debug("Writing file %s", filename)
                     with open(filename, 'a') as f:
                         df.to_csv(f, sep='\t', header=False, index=False)
         time.sleep(2)
