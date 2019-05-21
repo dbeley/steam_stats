@@ -1,5 +1,5 @@
 [Unit]
-Description=bot steam
+Description=steam_stats.service
 
 [Service]
 Type=oneshot
