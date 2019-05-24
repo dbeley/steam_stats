@@ -13,8 +13,8 @@ import re
 from pathlib import Path
 
 logger = logging.getLogger()
-logging.getLogger('requests').setLevel(logging.WARNING)
-logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger("requests").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 temps_debut = time.time()
 
 
@@ -26,11 +26,15 @@ def slugify(value, allow_unicode=False):
     """
     value = str(value)
     if allow_unicode:
-        value = unicodedata.normalize('NFKC', value)
+        value = unicodedata.normalize("NFKC", value)
     else:
-        value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
-    value = re.sub(r'[^\w\s-]', '', value).strip().lower()
-    return re.sub(r'[-\s]+', '-', value)
+        value = (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
+    value = re.sub(r"[^\w\s-]", "", value).strip().lower()
+    return re.sub(r"[-\s]+", "-", value)
 
 
 def main():
@@ -48,15 +52,15 @@ def main():
 
     logger.debug("Reading config file")
     config = configparser.ConfigParser()
-    config.read('config.ini')
+    config.read("config.ini")
     try:
-        api_key = config['steam']['api_key']
+        api_key = config["steam"]["api_key"]
     except Exception as e:
         logger.error("Problem with the config file.")
         exit()
 
     logger.debug("Reading CSV file")
-    df = pd.read_csv(file, sep='\t|;', engine='python')
+    df = pd.read_csv(file, sep="\t|;", engine="python")
     logger.debug("Columns : %s", df.columns)
 
     ids = df.appid.tolist()
@@ -67,50 +71,62 @@ def main():
     for game_id in ids:
         game_dict = {}
         auj = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-        game_dict['export_date'] = auj
-        game_dict['appid'] = game_id
-        success = 'NA'
+        game_dict["export_date"] = auj
+        game_dict["appid"] = game_id
+        success = "NA"
         n_tries = 0
         while True:
             n_tries += 1
             try:
                 url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
                 info_dict = requests.get(url_info_game).json()
-                success = info_dict[str(game_id)]['success']
+                success = info_dict[str(game_id)]["success"]
                 logger.debug("ID %s - success : %s", game_id, success)
-                info_dict = info_dict[str(game_id)]['data']
+                info_dict = info_dict[str(game_id)]["data"]
             except Exception as e:
-                logger.error("Can't extract page for ID %s - %s : %s", game_id, url_info_game, e)
+                logger.error(
+                    "Can't extract page for ID %s - %s : %s",
+                    game_id,
+                    url_info_game,
+                    e,
+                )
             if type(success) == bool or n_tries > 10:
                 break
         if success:
             try:
-                game_dict['name'] = info_dict['name'].strip()
-                logger.debug("Game %s - ID %s : %s", game_dict['name'], game_id, url_info_game)
-                game_dict['type'] = info_dict['type']
-                game_dict['required_age'] = info_dict['required_age']
-                game_dict['is_free'] = info_dict['is_free']
-                game_dict['developers'] = ', '.join(info_dict['developers'])
-                game_dict['publishers'] = ', '.join(info_dict['publishers'])
-                game_dict['windows'] = info_dict['platforms']['windows']
-                game_dict['linux'] = info_dict['platforms']['linux']
-                game_dict['mac'] = info_dict['platforms']['mac']
-                game_dict['genres'] = info_dict['genres']
-                game_dict['release_date'] = info_dict['release_date']['date']
+                game_dict["name"] = info_dict["name"].strip()
+                logger.debug(
+                    "Game %s - ID %s : %s",
+                    game_dict["name"],
+                    game_id,
+                    url_info_game,
+                )
+                game_dict["type"] = info_dict["type"]
+                game_dict["required_age"] = info_dict["required_age"]
+                game_dict["is_free"] = info_dict["is_free"]
+                game_dict["developers"] = ", ".join(info_dict["developers"])
+                game_dict["publishers"] = ", ".join(info_dict["publishers"])
+                game_dict["windows"] = info_dict["platforms"]["windows"]
+                game_dict["linux"] = info_dict["platforms"]["linux"]
+                game_dict["mac"] = info_dict["platforms"]["mac"]
+                game_dict["genres"] = info_dict["genres"]
+                game_dict["release_date"] = info_dict["release_date"]["date"]
             except Exception as e:
                 logger.error("ID %s - %s : %s", game_id, url_info_game, e)
 
             try:
                 url_reviews = f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
                 reviews_dict = requests.get(url_reviews).json()
-                reviews_dict = reviews_dict['query_summary']
+                reviews_dict = reviews_dict["query_summary"]
 
-                game_dict['num_reviews'] = reviews_dict['num_reviews']
-                game_dict['review_score'] = reviews_dict['review_score']
-                game_dict['review_score_desc'] = reviews_dict['review_score_desc']
-                game_dict['total_positive'] = reviews_dict['total_positive']
-                game_dict['total_negative'] = reviews_dict['total_negative']
-                game_dict['total_reviews'] = reviews_dict['total_reviews']
+                game_dict["num_reviews"] = reviews_dict["num_reviews"]
+                game_dict["review_score"] = reviews_dict["review_score"]
+                game_dict["review_score_desc"] = reviews_dict[
+                    "review_score_desc"
+                ]
+                game_dict["total_positive"] = reviews_dict["total_positive"]
+                game_dict["total_negative"] = reviews_dict["total_negative"]
+                game_dict["total_reviews"] = reviews_dict["total_reviews"]
             except Exception as e:
                 logger.error("url_reviews - %s : %s", url_reviews, e)
 
@@ -119,18 +135,20 @@ def main():
             if separate_export:
                 # have to put the dict in a list for some reason
                 df = pd.DataFrame([game_dict], index=[0])
-                if game_dict.get('name'):
-                    filename = f"Exports/{game_id}_{slugify(game_dict['name'])}.csv"
+                if game_dict.get("name"):
+                    filename = (
+                        f"Exports/{game_id}_{slugify(game_dict['name'])}.csv"
+                    )
                 else:
                     filename = f"Exports/{game_id}.csv"
                 if not Path(filename).is_file():
                     logger.debug("Writing new file %s", filename)
-                    with open(filename, 'w') as f:
-                        df.to_csv(f, sep='\t', index=False)
+                    with open(filename, "w") as f:
+                        df.to_csv(f, sep="\t", index=False)
                 else:
                     logger.debug("Writing file %s", filename)
-                    with open(filename, 'a') as f:
-                        df.to_csv(f, sep='\t', header=False, index=False)
+                    with open(filename, "a") as f:
+                        df.to_csv(f, sep="\t", header=False, index=False)
         time.sleep(2)
 
     df = pd.DataFrame(game_dict_list)
@@ -139,18 +157,35 @@ def main():
 
     filename = "Exports/game_info.csv"
     if not Path(filename).is_file():
-        df.to_csv(filename, sep='\t', index=False)
+        df.to_csv(filename, sep="\t", index=False)
     else:
-        with open(filename, 'a') as f:
-            df.to_csv(f, sep='\t', index=False, header=False)
+        with open(filename, "a") as f:
+            df.to_csv(f, sep="\t", index=False, header=False)
     logger.info("Runtime : %.2f seconds" % (time.time() - temps_debut))
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Steam script')
-    parser.add_argument('--debug', help="Display debugging information", action="store_const", dest="loglevel", const=logging.DEBUG, default=logging.INFO)
-    parser.add_argument('-f', '--file', help="File containing the ids to parse", type=str)
-    parser.add_argument('-s', '--separate_export', help="Export separately (one file per game + the global file)", dest="separate_export", action='store_true')
+    parser = argparse.ArgumentParser(
+        description="Export games info from a list of ids"
+    )
+    parser.add_argument(
+        "--debug",
+        help="Display debugging information",
+        action="store_const",
+        dest="loglevel",
+        const=logging.DEBUG,
+        default=logging.INFO,
+    )
+    parser.add_argument(
+        "-f", "--file", help="File containing the ids to parse", type=str
+    )
+    parser.add_argument(
+        "-s",
+        "--separate_export",
+        help="Export separately (one file per game + the global file)",
+        dest="separate_export",
+        action="store_true",
+    )
     parser.set_defaults(boolean_flag=False, separate_export=False)
     args = parser.parse_args()
 
@@ -158,5 +193,5 @@ def parse_args():
     return args
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
