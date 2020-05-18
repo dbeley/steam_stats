@@ -9,13 +9,22 @@ import requests
 import datetime
 import pandas as pd
 import unicodedata
+import random
 import re
 from pathlib import Path
+from tqdm import tqdm
 
 logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 temps_debut = time.time()
+
+
+def get_entry_from_dict(title, entry):
+    if entry in title:
+        return title[entry]
+    else:
+        return ""
 
 
 def slugify(value, allow_unicode=False):
@@ -35,6 +44,49 @@ def slugify(value, allow_unicode=False):
         )
     value = re.sub(r"[^\w\s-]", "", value).strip().lower()
     return re.sub(r"[-\s]+", "-", value)
+
+
+def get_info_dict(game_id):
+    info_dict = {}
+    success = "false"
+    n_tries = 0
+    while True:
+        n_tries += 1
+        try:
+            url_info_game = (
+                f"http://store.steampowered.com/api/appdetails?appids={game_id}"
+            )
+            info_dict = requests.get(url_info_game).json()
+            success = info_dict[str(game_id)]["success"]
+            logger.debug("ID %s - success : %s", game_id, success)
+            info_dict = info_dict[str(game_id)]["data"]
+        except Exception as e:
+            logger.debug(
+                "Can't extract page for ID %s - %s : %s", game_id, url_info_game, e,
+            )
+            time.sleep(2)
+        if success == "true" or n_tries > 3:
+            break
+    return info_dict
+
+
+def get_reviews_dict(game_id):
+    reviews_dict = {}
+    n_tries = 0
+    while True:
+        n_tries += 1
+        try:
+            url_reviews = f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
+            reviews_dict = requests.get(url_reviews).json()
+            reviews_dict = reviews_dict["query_summary"]
+        except Exception as e:
+            logger.debug(
+                "Can't extract reviews for ID %s - %s : %s", game_id, url_reviews, e
+            )
+            time.sleep(2)
+        if get_entry_from_dict(reviews_dict, "num_reviews") or n_tries > 3:
+            break
+    return reviews_dict
 
 
 def main():
@@ -68,88 +120,76 @@ def main():
     Path("Exports").mkdir(parents=True, exist_ok=True)
 
     game_dict_list = []
-    for game_id in ids:
-        game_dict = {}
-        auj = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-        game_dict["export_date"] = auj
-        game_dict["appid"] = game_id
-        success = "NA"
-        n_tries = 0
-        while True:
-            n_tries += 1
-            try:
-                url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
-                info_dict = requests.get(url_info_game).json()
-                success = info_dict[str(game_id)]["success"]
-                logger.debug("ID %s - success : %s", game_id, success)
-                info_dict = info_dict[str(game_id)]["data"]
-            except Exception as e:
-                logger.error(
-                    "Can't extract page for ID %s - %s : %s",
-                    game_id,
-                    url_info_game,
-                    e,
-                )
-            if type(success) == bool or n_tries > 10:
-                break
-        if success:
-            try:
-                game_dict["name"] = info_dict["name"].strip()
-                logger.debug(
-                    "Game %s - ID %s : %s",
-                    game_dict["name"],
-                    game_id,
-                    url_info_game,
-                )
-                game_dict["type"] = info_dict["type"]
-                game_dict["required_age"] = info_dict["required_age"]
-                game_dict["is_free"] = info_dict["is_free"]
-                game_dict["developers"] = ", ".join(info_dict["developers"])
-                game_dict["publishers"] = ", ".join(info_dict["publishers"])
-                game_dict["windows"] = info_dict["platforms"]["windows"]
-                game_dict["linux"] = info_dict["platforms"]["linux"]
-                game_dict["mac"] = info_dict["platforms"]["mac"]
-                game_dict["genres"] = info_dict["genres"]
-                game_dict["release_date"] = info_dict["release_date"]["date"]
-            except Exception as e:
-                logger.error("ID %s - %s : %s", game_id, url_info_game, e)
-
-            try:
-                url_reviews = f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
-                reviews_dict = requests.get(url_reviews).json()
-                reviews_dict = reviews_dict["query_summary"]
-
-                game_dict["num_reviews"] = reviews_dict["num_reviews"]
-                game_dict["review_score"] = reviews_dict["review_score"]
-                game_dict["review_score_desc"] = reviews_dict[
-                    "review_score_desc"
-                ]
-                game_dict["total_positive"] = reviews_dict["total_positive"]
-                game_dict["total_negative"] = reviews_dict["total_negative"]
-                game_dict["total_reviews"] = reviews_dict["total_reviews"]
-            except Exception as e:
-                logger.error("url_reviews - %s : %s", url_reviews, e)
-
-            game_dict_list.append(game_dict)
-
-            if separate_export:
-                # have to put the dict in a list for some reason
-                df = pd.DataFrame([game_dict], index=[0])
-                if game_dict.get("name"):
-                    filename = (
-                        f"Exports/{game_id}_{slugify(game_dict['name'])}.csv"
-                    )
-                else:
-                    filename = f"Exports/{game_id}.csv"
-                if not Path(filename).is_file():
-                    logger.debug("Writing new file %s", filename)
-                    with open(filename, "w") as f:
-                        df.to_csv(f, sep="\t", index=False)
-                else:
-                    logger.debug("Writing file %s", filename)
-                    with open(filename, "a") as f:
-                        df.to_csv(f, sep="\t", header=False, index=False)
+    for game_id in tqdm(ids):
         time.sleep(2)
+        info_dict = get_info_dict(game_id)
+        if info_dict:
+            reviews_dict = get_reviews_dict(game_id)
+            if reviews_dict:
+                auj = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                game_dict = {
+                    "export_date": auj,
+                    "appid": game_id,
+                    "name": get_entry_from_dict(info_dict, "name").strip(),
+                    "type": get_entry_from_dict(info_dict, "type"),
+                    "required_age": get_entry_from_dict(info_dict, "required_age"),
+                    "is_free": get_entry_from_dict(info_dict, "is_free"),
+                    "developers": ", ".join(
+                        get_entry_from_dict(info_dict, "developers")
+                    ),
+                    "publishers": ", ".join(
+                        get_entry_from_dict(info_dict, "publishers")
+                    ),
+                    "windows": get_entry_from_dict(
+                        get_entry_from_dict(info_dict, "platforms"), "windows"
+                    ),
+                    "linux": get_entry_from_dict(
+                        get_entry_from_dict(info_dict, "platforms"), "linux"
+                    ),
+                    "mac": get_entry_from_dict(
+                        get_entry_from_dict(info_dict, "platforms"), "mac"
+                    ),
+                    "genres": ", ".join(
+                        [
+                            x["description"]
+                            for x in get_entry_from_dict(info_dict, "genres")
+                        ]
+                    ),
+                    "release_date": get_entry_from_dict(
+                        get_entry_from_dict(info_dict, "release_date"), "date"
+                    ),
+                    "num_reviews": get_entry_from_dict(reviews_dict, "num_reviews"),
+                    "review_score": get_entry_from_dict(reviews_dict, "review_score"),
+                    "review_score_desc": get_entry_from_dict(
+                        reviews_dict, "review_score_desc"
+                    ),
+                    "total_positive": get_entry_from_dict(
+                        reviews_dict, "total_positive"
+                    ),
+                    "total_negative": get_entry_from_dict(
+                        reviews_dict, "total_negative"
+                    ),
+                    "total_reviews": get_entry_from_dict(reviews_dict, "total_reviews"),
+                }
+
+                logger.debug(game_dict)
+                game_dict_list.append(game_dict)
+
+                if separate_export:
+                    # have to put the dict in a list for some reason
+                    df = pd.DataFrame([game_dict], index=[0])
+                    if game_dict.get("name"):
+                        filename = f"Exports/{game_id}_{slugify(game_dict['name'])}.csv"
+                    else:
+                        filename = f"Exports/{game_id}.csv"
+                    if not Path(filename).is_file():
+                        logger.debug("Writing new file %s", filename)
+                        with open(filename, "w") as f:
+                            df.to_csv(f, sep="\t", index=False)
+                    else:
+                        logger.debug("Writing file %s", filename)
+                        with open(filename, "a") as f:
+                            df.to_csv(f, sep="\t", header=False, index=False)
 
     df = pd.DataFrame(game_dict_list)
 
@@ -165,9 +205,7 @@ def main():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Export games info from a list of ids"
-    )
+    parser = argparse.ArgumentParser(description="Export games info from a list of ids")
     parser.add_argument(
         "--debug",
         help="Display debugging information",
