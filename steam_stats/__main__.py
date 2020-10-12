@@ -184,9 +184,8 @@ def main():
 
     df = pd.DataFrame(game_dict_list)
 
-    logger.debug("Writing complete export %s.", filename)
-
     filename = f"Exports/game_info_{auj}.csv"
+    logger.debug("Writing complete export %s.", filename)
     df.to_csv(filename, sep="\t", index=False)
     logger.info("Runtime : %.2f seconds" % (time.time() - temps_debut))
 
