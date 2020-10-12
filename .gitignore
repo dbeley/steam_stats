@@ -5,3 +5,4 @@ Exports/
 config.ini
 tags
 *.csv
+build/
