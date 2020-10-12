@@ -8,7 +8,7 @@
 
 ## get_ids.py
 
-Export the ids of a either all games, owned games or wishlisted games of a steam user.
+Export the ids of all Steam games, owned games or wishlisted games of a steam user.
 
 ```
 python get_ids.py -h
@@ -54,7 +54,7 @@ optional arguments:
                         Default : user in config.ini
 ```
 
-# steam_stats
+## steam_stats
 
 Export games info from a list of ids
 
