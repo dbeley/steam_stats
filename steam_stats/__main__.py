@@ -139,8 +139,8 @@ def main():
         # logger.debug(f"reviews_dict for game %s: %s.", game_id, reviews_dict)
         game_dict = {
             "export_date": auj,
-            "appid": game_id,
             "name": get_entry_from_dict(info_dict, "name").strip(),
+            "appid": game_id,
             "type": get_entry_from_dict(info_dict, "type"),
             "required_age": get_entry_from_dict(info_dict, "required_age"),
             "is_free": get_entry_from_dict(info_dict, "is_free"),
