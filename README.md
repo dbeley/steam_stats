@@ -59,7 +59,7 @@ optional arguments:
 Export the playtime of all Steam games, owned games or wishlisted games of a steam user.
 
 ```
-python get_ids.py -h
+python get_playtime.py -h
 ```
 
 ## steam_stats
