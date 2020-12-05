@@ -6,18 +6,9 @@
 - requests
 - unicode
 
-## get_ids.py
+## Configuration
 
-Export the ids of all Steam games, owned games or wishlisted games of a steam user.
-
-```
-python get_ids.py -h
-```
-
-### Configuration
-
-
-Needs a config.ini file with a valid steam api key and a steam id (see config_sample.ini for an example).
+All the scripts need a config.ini file with a valid steam api key and a steam id (see config_sample.ini for an example).
 
 - Sample config.ini file :
 
@@ -25,6 +16,14 @@ Needs a config.ini file with a valid steam api key and a steam id (see config_sa
 [steam]
 api_key=api_key_here
 user_id=user_id_ere
+```
+
+## get_ids.py
+
+Export the ids of all Steam games, owned games or wishlisted games of a steam user.
+
+```
+python get_ids.py -h
 ```
 
 ### Usage
@@ -52,6 +51,15 @@ optional arguments:
   -u USER_ID, --user_id USER_ID
                         User id to extract the games info from (steamID64).
                         Default : user in config.ini
+```
+
+
+## get_playtime.py
+
+Export the playtime of all Steam games, owned games or wishlisted games of a steam user.
+
+```
+python get_ids.py -h
 ```
 
 ## steam_stats

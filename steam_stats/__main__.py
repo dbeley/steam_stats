@@ -16,12 +16,15 @@ from tqdm import tqdm
 logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
-temps_debut = time.time()
+START_TIME = time.time()
 
 
 def get_entry_from_dict(title, entry):
-    if entry in title:
-        return title[entry]
+    if title:
+        if entry in title:
+            return title[entry]
+        else:
+            return ""
     else:
         return ""
 
@@ -65,14 +68,12 @@ def get_info_dict(game_id):
                     "Can't extract page for ID %s - %s : %s",
                     game_id,
                     url_info_game,
-                    e,
-                )
-                time.sleep(0.5)
+                    e)
             if success or n_tries > 3:
                 break
         return info_dict
     except Exception as e:
-        logger.warning(f"Couldn't get game infos for %s: %s.", game_id, e)
+        logger.warning(f"Couldn't get game infos for {game_id}: {e}.")
         return None
 
 
@@ -90,7 +91,6 @@ def get_reviews_dict(game_id):
                 logger.debug(
                     "Can't extract reviews for ID %s - %s : %s", game_id, url_reviews, e
                 )
-                time.sleep(0.5)
             if get_entry_from_dict(reviews_dict, "num_reviews") or n_tries > 3:
                 break
         return reviews_dict
@@ -119,7 +119,7 @@ def main():
     try:
         api_key = config["steam"]["api_key"]
     except Exception as e:
-        logger.error("Problem with the config file.")
+        logger.error(f"Problem with the config file: {e}.")
         exit()
 
     logger.debug("Reading CSV file")
@@ -132,11 +132,8 @@ def main():
 
     game_dict_list = []
     for game_id in tqdm(ids, dynamic_ncols=True):
-        time.sleep(0.5)
         info_dict = get_info_dict(game_id)
-        # logger.debug(f"info_dict for game %s: %s.", game_id, info_dict)
         reviews_dict = get_reviews_dict(game_id)
-        # logger.debug(f"reviews_dict for game %s: %s.", game_id, reviews_dict)
         game_dict = {
             "export_date": auj,
             "name": get_entry_from_dict(info_dict, "name").strip(),
@@ -187,7 +184,7 @@ def main():
     filename = f"Exports/game_info_{auj}.csv"
     logger.debug("Writing complete export %s.", filename)
     df.to_csv(filename, sep="\t", index=False)
-    logger.info("Runtime : %.2f seconds" % (time.time() - temps_debut))
+    logger.info("Runtime : %.2f seconds" % (time.time() - START_TIME))
 
 
 def parse_args():
