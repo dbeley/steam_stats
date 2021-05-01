@@ -10,7 +10,7 @@ pandas = "*"
 requests = "*"
 e1839a8 = {editable = true,path = "."}
 unicode = "*"
-steam-stats = {editable = true,path = "."}
+steam-stats = {editable = true, path = "."}
 tqdm = "*"
 
 [requires]
