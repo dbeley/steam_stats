@@ -122,7 +122,9 @@ def main():
         dict_games += get_wishlist_ids(user_id)
 
     df = pd.DataFrame(dict_games)
-    filename = f"Exports/ids_{args.type}_{user_id}.csv"
+    filename = (
+        args.filename if args.filename else f"Exports/ids_{args.type}_{user_id}.csv"
+    )
     df.to_csv(filename, sep="\t", index=False)
     logger.info(f"Output file: {filename}.")
 
@@ -149,6 +151,12 @@ def parse_args():
         "-u",
         "--user_id",
         help="User id to extract the games info from (steamID64). Default : user in config.ini",
+        type=str,
+    )
+    parser.add_argument(
+        "-f",
+        "--filename",
+        help="Override export filename.",
         type=str,
     )
     args = parser.parse_args()

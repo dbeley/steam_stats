@@ -65,10 +65,8 @@ def get_info_dict(game_id):
                 info_dict = info_dict[str(game_id)]["data"]
             except Exception as e:
                 logger.debug(
-                    "Can't extract page for ID %s - %s : %s",
-                    game_id,
-                    url_info_game,
-                    e)
+                    "Can't extract page for ID %s - %s : %s", game_id, url_info_game, e
+                )
             if success or n_tries > 3:
                 break
         return info_dict
@@ -181,7 +179,9 @@ def main():
 
     df = pd.DataFrame(game_dict_list)
 
-    filename = f"Exports/game_info_{auj}.csv"
+    filename = (
+        args.export_filename if args.export_filename else f"Exports/game_info_{auj}.csv"
+    )
     logger.debug("Writing complete export %s.", filename)
     df.to_csv(filename, sep="\t", index=False)
     logger.info("Runtime : %.2f seconds" % (time.time() - START_TIME))
@@ -200,6 +200,7 @@ def parse_args():
     parser.add_argument(
         "-f", "--file", help="File containing the ids to parse", type=str
     )
+    parser.add_argument("--export_filename", help="Override export filename.", type=str)
     parser.add_argument(
         "-s",
         "--separate_export",
