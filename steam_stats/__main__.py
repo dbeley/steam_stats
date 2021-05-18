@@ -49,52 +49,39 @@ def slugify(value, allow_unicode=False):
 
 
 def get_info_dict(game_id):
-    try:
-        info_dict = {}
-        success = "false"
-        n_tries = 0
-        while True:
-            n_tries += 1
-            try:
-                url_info_game = (
-                    f"http://store.steampowered.com/api/appdetails?appids={game_id}"
-                )
-                info_dict = requests.get(url_info_game).json()
-                success = info_dict[str(game_id)]["success"]
+    success = False
+    n_tries = 0
+    while True:
+        n_tries += 1
+        url_info_game = (
+            f"http://store.steampowered.com/api/appdetails?appids={game_id}"
+        )
+        result = requests.get(url_info_game).json()
+        if result:
+            success = result[str(game_id)]["success"]
+            if success:
                 logger.debug("ID %s - success : %s", game_id, success)
-                info_dict = info_dict[str(game_id)]["data"]
-            except Exception as e:
-                logger.debug(
-                    "Can't extract page for ID %s - %s : %s", game_id, url_info_game, e
-                )
-            if success or n_tries > 3:
-                break
-        return info_dict
-    except Exception as e:
-        logger.warning(f"Couldn't get game infos for {game_id}: {e}.")
-        return None
+                info_dict = result[str(game_id)]["data"]
+                return info_dict
+            else:
+                return None
+        else:
+            logger.warning(f"Result was none. Retrying in 10 seconds until it works again. Try {n_tries}.")
+            time.sleep(10)
 
 
 def get_reviews_dict(game_id):
-    try:
-        reviews_dict = {}
-        n_tries = 0
-        while True:
-            n_tries += 1
-            try:
-                url_reviews = f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
-                reviews_dict = requests.get(url_reviews).json()
-                reviews_dict = reviews_dict["query_summary"]
-            except Exception as e:
-                logger.debug(
-                    "Can't extract reviews for ID %s - %s : %s", game_id, url_reviews, e
-                )
-            if get_entry_from_dict(reviews_dict, "num_reviews") or n_tries > 3:
-                break
-        return reviews_dict
-    except Exception as e:
-        logger.warning(f"Couldn't get reviews infos for %s: %s.", game_id, e)
-        return None
+    n_tries = 0
+    while True:
+        n_tries += 1
+        url_reviews = f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
+        result = requests.get(url_reviews).json()
+        if result:
+            reviews_dict = result["query_summary"]
+            return reviews_dict
+        else:
+            logger.warning(f"Result was none. Retrying in 10 seconds until it works again. Try {n_tries}.")
+            time.sleep(10)
 
 
 def main():

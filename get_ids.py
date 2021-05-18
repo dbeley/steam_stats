@@ -6,6 +6,7 @@ import requests
 import re
 import unicodedata
 import pandas as pd
+import json
 from pathlib import Path
 
 logger = logging.getLogger()
@@ -34,6 +35,7 @@ def slugify(value, allow_unicode=False):
 def get_all_ids(api_key):
     url = f"http://api.steampowered.com/ISteamApps/GetAppList/v0002/?key={api_key}&format=json"
     json_dict = requests.get(url).json()
+    logger.debug(f"get_all_ids JSON output: {json_dict}")
     dict_games = []
     for game in json_dict["applist"]["apps"]:
         dict_game = {}
@@ -45,6 +47,7 @@ def get_all_ids(api_key):
 def get_owned_ids(api_key, user_id):
     url = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={api_key}&steamid={user_id}&format=json"
     json_dict = requests.get(url).json()
+    logger.debug(f"get_owned_ids JSON output: {json_dict}")
     dict_games = []
     for game in json_dict["response"]["games"]:
         dict_game = {}
@@ -61,6 +64,7 @@ def get_wishlist_ids(user_id):
         page += 1
         logger.info("Fetching page %s.", url)
         json_dict = requests.get(url).json()
+        logger.debug(f"get_wishlist_ids JSON output: {json_dict}")
         if json_dict:
             for game_id in json_dict:
                 dict_game = {}
