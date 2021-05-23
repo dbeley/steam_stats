@@ -12,6 +12,7 @@ import unicodedata
 import re
 from pathlib import Path
 from tqdm import tqdm
+from .itad import get_itad_infos
 
 logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -53,9 +54,7 @@ def get_info_dict(game_id):
     n_tries = 0
     while True:
         n_tries += 1
-        url_info_game = (
-            f"http://store.steampowered.com/api/appdetails?appids={game_id}"
-        )
+        url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
         result = requests.get(url_info_game).json()
         if result:
             success = result[str(game_id)]["success"]
@@ -66,7 +65,9 @@ def get_info_dict(game_id):
             else:
                 return None
         else:
-            logger.warning(f"Result was none. Retrying in 10 seconds until it works again. Try {n_tries}.")
+            logger.warning(
+                f"Result was none. Retrying in 10 seconds until it works again. Try {n_tries}."
+            )
             time.sleep(10)
 
 
@@ -74,13 +75,17 @@ def get_reviews_dict(game_id):
     n_tries = 0
     while True:
         n_tries += 1
-        url_reviews = f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
+        url_reviews = (
+            f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
+        )
         result = requests.get(url_reviews).json()
         if result:
             reviews_dict = result["query_summary"]
             return reviews_dict
         else:
-            logger.warning(f"Result was none. Retrying in 10 seconds until it works again. Try {n_tries}.")
+            logger.warning(
+                f"Result was none. Retrying in 10 seconds until it works again. Try {n_tries}."
+            )
             time.sleep(10)
 
 
@@ -149,7 +154,23 @@ def main():
             "total_positive": get_entry_from_dict(reviews_dict, "total_positive"),
             "total_negative": get_entry_from_dict(reviews_dict, "total_negative"),
             "total_reviews": get_entry_from_dict(reviews_dict, "total_reviews"),
+            "url": f"https://store.steampowered.app/{game_id}",
         }
+
+        if args.enable_itad:
+            api_key = config["itad"]["api_key"]
+            result_itad = get_itad_infos(api_key, game_id)
+            if result_itad:
+                game_dict["itad_current_price"] = (
+                    f"{result_itad['current_price_price']}"
+                    if "current_price_price" in result_itad
+                    else ""
+                )
+                game_dict["itad_historical_low_price"] = (
+                    f"{result_itad['historical_low_price_price']}"
+                    if "historical_low_price_price" in result_itad
+                    else ""
+                )
 
         logger.debug("Result for game %s: %s.", game_id, game_dict)
         game_dict_list.append(game_dict)
@@ -195,7 +216,13 @@ def parse_args():
         dest="separate_export",
         action="store_true",
     )
-    parser.set_defaults(separate_export=False)
+    parser.add_argument(
+        "--enable_itad",
+        help="Add extra data from isthereanydeal.",
+        dest="enable_itad",
+        action="store_true",
+    )
+    parser.set_defaults(separate_export=False, enable_itad=False)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.loglevel)
