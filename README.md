@@ -100,7 +100,8 @@ steam_stats -h
 ```
 
 ```
-usage: steam_stats [-h] [--debug] [-f FILE] [-s]
+usage: steam_stats [-h] [--debug] [-f FILE]
+                   [--export_filename EXPORT_FILENAME] [-s] [--extra_infos]
 
 Export games info from a list of ids
 
@@ -108,7 +109,11 @@ optional arguments:
   -h, --help            show this help message and exit
   --debug               Display debugging information
   -f FILE, --file FILE  File containing the ids to parse
+  --export_filename EXPORT_FILENAME
+                        Override export filename.
   -s, --separate_export
                         Export separately (one file per game + the global
                         file)
+  --extra_infos         Enable extra information fetching (ITAD, HLTB,
+                        opencritic).
 ```

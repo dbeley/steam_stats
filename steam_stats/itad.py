@@ -19,9 +19,15 @@ def get_itad_historical_low(api_key, plain, region, country):
     logger.debug(f"{url}: {result}")
     if result:
         return {
-            "historical_low_price": result["data"][plain]["price"],
-            "historical_low_currency": result[".meta"]["currency"],
-            "historical_low_shop": result["data"][plain]["shop"]["name"],
+            "historical_low_price": result["data"][plain]["price"]
+            if "price" in result["data"][plain]
+            else None,
+            "historical_low_currency": result[".meta"]["currency"]
+            if "currency" in result["data"][plain]
+            else None,
+            "historical_low_shop": result["data"][plain]["shop"]["name"]
+            if "shop" in result["data"][plain]
+            else None,
         }
     else:
         return None
@@ -38,9 +44,15 @@ def get_itad_current_price(api_key, appid, plain, region, country):
     logger.debug(f"{url}: {correct_result}")
     if correct_result:
         return {
-            "current_price_price": correct_result["price_new"],
-            "current_price_currency": result[".meta"]["currency"],
-            "current_price_shop": correct_result["shop"]["name"],
+            "current_price_price": correct_result["price_new"]
+            if "price_new" in correct_result
+            else None,
+            "current_price_currency": result[".meta"]["currency"]
+            if ".meta" in correct_result
+            else None,
+            "current_price_shop": correct_result["shop"]["name"]
+            if "shop" in correct_result
+            else None,
         }
     else:
         return None

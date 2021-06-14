@@ -13,6 +13,8 @@ import re
 from pathlib import Path
 from tqdm import tqdm
 from .itad import get_itad_infos
+from .hltb import get_howlongtobeat_infos
+from .opencritic import get_opencritic_infos
 
 logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -91,15 +93,13 @@ def get_reviews_dict(game_id):
 
 def main():
     args = parse_args()
-    file = args.file
-    separate_export = args.separate_export
     auj = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    if not file:
+    if not args.file:
         logger.error("-f/--file argument not filled. Exiting.")
         exit()
 
-    if not Path(file).is_file():
+    if not Path(args.file).is_file():
         logger.error("%s is not a file. Exiting.", file)
         exit()
 
@@ -113,7 +113,7 @@ def main():
         exit()
 
     logger.debug("Reading CSV file")
-    df = pd.read_csv(file, sep="\t|;", engine="python")
+    df = pd.read_csv(args.file, sep="\t|;", engine="python")
     logger.debug("Columns : %s", df.columns)
 
     ids = df.appid.tolist()
@@ -154,28 +154,26 @@ def main():
             "total_positive": get_entry_from_dict(reviews_dict, "total_positive"),
             "total_negative": get_entry_from_dict(reviews_dict, "total_negative"),
             "total_reviews": get_entry_from_dict(reviews_dict, "total_reviews"),
-            "url": f"https://store.steampowered.app/{game_id}",
+            "url": f"https://store.steampowered.com/{game_id}",
         }
 
-        if args.enable_itad:
+        if args.extra_infos:
             api_key = config["itad"]["api_key"]
+            name = get_entry_from_dict(info_dict, "name").strip()
             result_itad = get_itad_infos(api_key, game_id)
             if result_itad:
-                game_dict["itad_current_price"] = (
-                    f"{result_itad['current_price_price']}"
-                    if "current_price_price" in result_itad
-                    else ""
-                )
-                game_dict["itad_historical_low_price"] = (
-                    f"{result_itad['historical_low_price_price']}"
-                    if "historical_low_price_price" in result_itad
-                    else ""
-                )
+                game_dict = {**game_dict, **result_itad}
+            result_opencritic = get_opencritic_infos(name)
+            if result_opencritic:
+                game_dict = {**game_dict, **result_opencritic}
+            result_howlongtobeat = get_howlongtobeat_infos(name)
+            if result_howlongtobeat:
+                game_dict = {**game_dict, **result_howlongtobeat}
 
         logger.debug("Result for game %s: %s.", game_id, game_dict)
         game_dict_list.append(game_dict)
 
-        if separate_export:
+        if args.separate_export:
             # have to put the dict in a list for some reason
             df = pd.DataFrame([game_dict], index=[0])
             if game_dict.get("name"):
@@ -217,12 +215,12 @@ def parse_args():
         action="store_true",
     )
     parser.add_argument(
-        "--enable_itad",
-        help="Add extra data from isthereanydeal.",
-        dest="enable_itad",
+        "--extra_infos",
+        help="Enable extra information fetching (ITAD, HLTB, opencritic).",
+        dest="extra_infos",
         action="store_true",
     )
-    parser.set_defaults(separate_export=False, enable_itad=False)
+    parser.set_defaults(separate_export=False, extra_infos=False)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.loglevel)

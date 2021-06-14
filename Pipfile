@@ -12,6 +12,7 @@ e1839a8 = {editable = true,path = "."}
 unicode = "*"
 steam-stats = {editable = true, path = "."}
 tqdm = "*"
+howlongtobeatpy = "*"
 
 [requires]
 python_version = "3.9"
