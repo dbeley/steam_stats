@@ -68,7 +68,7 @@ def get_info_dict(game_id):
                 return None
         else:
             logger.warning(
-                f"Result was none. Retrying in 10 seconds until it works again. Try {n_tries}."
+                f"get_info_dict: No result for {url_info_game}. Retrying in 10 seconds: try {n_tries}."
             )
             time.sleep(10)
 
@@ -86,7 +86,7 @@ def get_reviews_dict(game_id):
             return reviews_dict
         else:
             logger.warning(
-                f"Result was none. Retrying in 10 seconds until it works again. Try {n_tries}."
+                f"get_reviews_dict: No result for {url_reviews}. Retrying in 10 seconds: try {n_tries}."
             )
             time.sleep(10)
 
@@ -100,7 +100,7 @@ def main():
         exit()
 
     if not Path(args.file).is_file():
-        logger.error("%s is not a file. Exiting.", file)
+        logger.error("%s is not a file. Exiting.", args.file)
         exit()
 
     logger.debug("Reading config file")
