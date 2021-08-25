@@ -1,21 +1,26 @@
-import requests
 import logging
+from .requests import get_json
 
 logger = logging.getLogger(__name__)
 
 
 def get_itad_plain(api_key, appid):
     url = f"https://api.isthereanydeal.com/v02/game/plain/?key={api_key}&shop=steam&game_id=app%2F{appid}&url=&title=&optional="
-    result = requests.get(url).json()
+    result = get_json(url)
     logger.debug(f"{url}: {result}")
     if result:
-        return result["data"]["plain"]
+        if "data" in result:
+            if "plain" in result["data"]:
+                return result["data"]["plain"]
+    logger.warning(
+        f"IsThereAnyDeal infos not found for appid {appid}. API result: {result}."
+    )
     return None
 
 
 def get_itad_historical_low(api_key, plain, region, country):
     url = f"https://api.isthereanydeal.com/v01/game/lowest/?key={api_key}&plains={plain}&region={region}&country={country}"
-    result = requests.get(url).json()
+    result = get_json(url)
     logger.debug(f"{url}: {result}")
     if result:
         return {
@@ -35,7 +40,7 @@ def get_itad_historical_low(api_key, plain, region, country):
 
 def get_itad_current_price(api_key, appid, plain, region, country):
     url = f"https://api.isthereanydeal.com/v01/game/prices/?key={api_key}&plains={plain}&region={region}&country={country}&shops=steam&added=0"
-    result = requests.get(url).json()
+    result = get_json(url)
     # for some reasons there are sometimes several entries for one game. Get the one with the correct Steam URL.
     correct_result = None
     for x in result["data"][plain]["list"]:
@@ -61,30 +66,30 @@ def get_itad_current_price(api_key, appid, plain, region, country):
 def get_itad_infos(api_key, appid):
     # plain is the internal itad id for a game
     plain = get_itad_plain(api_key, appid)
-    historical_low = get_itad_historical_low(api_key, plain, "eu1", "FR")
-    current_price = get_itad_current_price(api_key, appid, plain, "eu1", "FR")
-    if plain and historical_low and current_price:
-        return {
-            "appid": appid,
-            "plain": plain,
-            "historical_low_price": historical_low["historical_low_price"]
-            if "historical_low_price" in historical_low
-            else None,
-            "historical_low_currency": historical_low["historical_low_currency"]
-            if "historical_low_currency" in historical_low
-            else None,
-            "historical_low_shop": historical_low["historical_low_shop"]
-            if "historical_low_shop" in historical_low
-            else None,
-            "current_price_price": current_price["current_price_price"]
-            if "current_price_price" in current_price
-            else None,
-            "current_price_currency": current_price["current_price_currency"]
-            if "current_price_currency" in current_price
-            else None,
-            "current_price_shop": current_price["current_price_shop"]
-            if "current_price_shop" in current_price
-            else None,
-        }
-    else:
-        return None
+    if plain:
+        historical_low = get_itad_historical_low(api_key, plain, "eu1", "FR")
+        current_price = get_itad_current_price(api_key, appid, plain, "eu1", "FR")
+        if historical_low and current_price:
+            return {
+                "appid": appid,
+                "plain": plain,
+                "historical_low_price": historical_low["historical_low_price"]
+                if "historical_low_price" in historical_low
+                else None,
+                "historical_low_currency": historical_low["historical_low_currency"]
+                if "historical_low_currency" in historical_low
+                else None,
+                "historical_low_shop": historical_low["historical_low_shop"]
+                if "historical_low_shop" in historical_low
+                else None,
+                "current_price_price": current_price["current_price_price"]
+                if "current_price_price" in current_price
+                else None,
+                "current_price_currency": current_price["current_price_currency"]
+                if "current_price_currency" in current_price
+                else None,
+                "current_price_shop": current_price["current_price_shop"]
+                if "current_price_shop" in current_price
+                else None,
+            }
+    return None
