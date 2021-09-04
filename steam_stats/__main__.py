@@ -15,6 +15,7 @@ from tqdm import tqdm
 from .itad import get_itad_infos
 from .hltb import get_howlongtobeat_infos
 from .opencritic import get_opencritic_infos
+from .requests import get_json
 
 logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -57,7 +58,7 @@ def get_info_dict(game_id):
     while True:
         n_tries += 1
         url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
-        result = requests.get(url_info_game).json()
+        result = get_json(url_info_game)
         if result:
             success = result[str(game_id)]["success"]
             if success:
@@ -80,7 +81,7 @@ def get_reviews_dict(game_id):
         url_reviews = (
             f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
         )
-        result = requests.get(url_reviews).json()
+        result = get_json(url_reviews)
         if result:
             reviews_dict = result["query_summary"]
             return reviews_dict
