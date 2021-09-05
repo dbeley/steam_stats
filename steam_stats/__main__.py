@@ -155,7 +155,7 @@ def main():
             "total_positive": get_entry_from_dict(reviews_dict, "total_positive"),
             "total_negative": get_entry_from_dict(reviews_dict, "total_negative"),
             "total_reviews": get_entry_from_dict(reviews_dict, "total_reviews"),
-            "url": f"https://store.steampowered.com/{game_id}",
+            "url": f"https://store.steampowered.com/app/{game_id}",
         }
 
         if args.extra_infos:
