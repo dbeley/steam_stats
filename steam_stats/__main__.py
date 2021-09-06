@@ -21,6 +21,7 @@ logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 START_TIME = time.time()
+DELAY = 60
 
 
 def get_entry_from_dict(title, entry):
@@ -69,9 +70,9 @@ def get_info_dict(game_id):
                 return None
         else:
             logger.warning(
-                f"get_info_dict: No result for {url_info_game}. Retrying in 10 seconds: try {n_tries}."
+                f"get_info_dict: No result for {url_info_game}. Retrying in {DELAY} seconds: try {n_tries}."
             )
-            time.sleep(10)
+            time.sleep(DELAY)
 
 
 def get_reviews_dict(game_id):
@@ -87,9 +88,9 @@ def get_reviews_dict(game_id):
             return reviews_dict
         else:
             logger.warning(
-                f"get_reviews_dict: No result for {url_reviews}. Retrying in 10 seconds: try {n_tries}."
+                f"get_reviews_dict: No result for {url_reviews}. Retrying in {DELAY} seconds: try {n_tries}."
             )
-            time.sleep(10)
+            time.sleep(DELAY)
 
 
 def main():
