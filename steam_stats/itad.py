@@ -66,7 +66,6 @@ def get_itad_infos(api_key, appid):
     if plain:
         historical_low = get_itad_historical_low(api_key, plain, "eu1", "FR")
         current_price = get_itad_current_price(api_key, appid, plain, "eu1", "FR")
-<<<<<<< HEAD
     else:
         historical_low = None
         current_price = None
@@ -95,29 +94,3 @@ def get_itad_infos(api_key, appid):
         }
     else:
         return None
-=======
-        if historical_low and current_price:
-            return {
-                "appid": appid,
-                "plain": plain,
-                "historical_low_price": historical_low["historical_low_price"]
-                if "historical_low_price" in historical_low
-                else None,
-                "historical_low_currency": historical_low["historical_low_currency"]
-                if "historical_low_currency" in historical_low
-                else None,
-                "historical_low_shop": historical_low["historical_low_shop"]
-                if "historical_low_shop" in historical_low
-                else None,
-                "current_price_price": current_price["current_price_price"]
-                if "current_price_price" in current_price
-                else None,
-                "current_price_currency": current_price["current_price_currency"]
-                if "current_price_currency" in current_price
-                else None,
-                "current_price_shop": current_price["current_price_shop"]
-                if "current_price_shop" in current_price
-                else None,
-            }
-    return None
->>>>>>> fa1ba1376ba3b89d867d763bc8f7ac388dc10e7c
