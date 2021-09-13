@@ -4,9 +4,9 @@ from .requests import get_json
 logger = logging.getLogger(__name__)
 
 
-def get_itad_plain(api_key, appid):
+def get_itad_plain(s, api_key, appid):
     url = f"https://api.isthereanydeal.com/v02/game/plain/?key={api_key}&shop=steam&game_id=app%2F{appid}&url=&title=&optional="
-    result = get_json(url)
+    result = get_json(s, url)
     logger.debug(f"{url}: {result}")
     if result:
         if isinstance(result["data"], dict):
@@ -15,9 +15,9 @@ def get_itad_plain(api_key, appid):
     return None
 
 
-def get_itad_historical_low(api_key, plain, region, country):
+def get_itad_historical_low(s, api_key, plain, region, country):
     url = f"https://api.isthereanydeal.com/v01/game/lowest/?key={api_key}&plains={plain}&region={region}&country={country}"
-    result = get_json(url)
+    result = get_json(s, url)
     logger.debug(f"{url}: {result}")
     if result:
         return {
@@ -35,9 +35,9 @@ def get_itad_historical_low(api_key, plain, region, country):
         return None
 
 
-def get_itad_current_price(api_key, appid, plain, region, country):
+def get_itad_current_price(s, api_key, appid, plain, region, country):
     url = f"https://api.isthereanydeal.com/v01/game/prices/?key={api_key}&plains={plain}&region={region}&country={country}&shops=steam&added=0"
-    result = get_json(url)
+    result = get_json(s, url)
     # for some reasons there are sometimes several entries for one game. Get the one with the correct Steam URL.
     correct_result = None
     for x in result["data"][plain]["list"]:
@@ -60,12 +60,12 @@ def get_itad_current_price(api_key, appid, plain, region, country):
         return None
 
 
-def get_itad_infos(api_key, appid):
+def get_itad_infos(s, api_key, appid):
     # plain is the internal itad id for a game
-    plain = get_itad_plain(api_key, appid)
+    plain = get_itad_plain(s, api_key, appid)
     if plain:
-        historical_low = get_itad_historical_low(api_key, plain, "eu1", "FR")
-        current_price = get_itad_current_price(api_key, appid, plain, "eu1", "FR")
+        historical_low = get_itad_historical_low(s, api_key, plain, "eu1", "FR")
+        current_price = get_itad_current_price(s, api_key, appid, plain, "eu1", "FR")
     else:
         historical_low = None
         current_price = None

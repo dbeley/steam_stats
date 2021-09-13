@@ -5,11 +5,13 @@ import logging
 import time
 import argparse
 import configparser
-import requests
 import datetime
 import pandas as pd
 import unicodedata
 import re
+import requests
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 from pathlib import Path
 from tqdm import tqdm
 from .itad import get_itad_infos
@@ -53,13 +55,13 @@ def slugify(value, allow_unicode=False):
     return re.sub(r"[-\s]+", "-", value)
 
 
-def get_info_dict(game_id):
+def get_info_dict(s, game_id):
     success = False
     n_tries = 0
     while True:
         n_tries += 1
         url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
-        result = get_steam_json(url_info_game, game_id)
+        result = get_steam_json(s, url_info_game, game_id)
         if result:
             success = result[str(game_id)]["success"]
             if success:
@@ -75,14 +77,14 @@ def get_info_dict(game_id):
             time.sleep(DELAY)
 
 
-def get_reviews_dict(game_id):
+def get_reviews_dict(s, game_id):
     n_tries = 0
     while True:
         n_tries += 1
         url_reviews = (
             f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
         )
-        result = get_steam_json(url_reviews, game_id)
+        result = get_steam_json(s, url_reviews, game_id)
         if result:
             reviews_dict = result["query_summary"]
             return reviews_dict
@@ -100,7 +102,6 @@ def main():
     if not args.file:
         logger.error("-f/--file argument not filled. Exiting.")
         exit()
-
     if not Path(args.file).is_file():
         logger.error("%s is not a file. Exiting.", args.file)
         exit()
@@ -108,24 +109,23 @@ def main():
     logger.debug("Reading config file")
     config = configparser.ConfigParser()
     config.read("config.ini")
-    try:
-        api_key = config["steam"]["api_key"]
-    except Exception as e:
-        logger.error(f"Problem with the config file: {e}.")
-        exit()
 
     logger.debug("Reading CSV file")
     df = pd.read_csv(args.file, sep="\t|;", engine="python")
     logger.debug("Columns : %s", df.columns)
 
     ids = df.appid.tolist()
-
     Path("Exports").mkdir(parents=True, exist_ok=True)
+
+    s = requests.Session()
+    retries = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+    s.mount("http://", HTTPAdapter(max_retries=retries))
+    s.mount("https://", HTTPAdapter(max_retries=retries))
 
     game_dict_list = []
     for game_id in tqdm(ids, dynamic_ncols=True):
-        info_dict = get_info_dict(game_id)
-        reviews_dict = get_reviews_dict(game_id)
+        info_dict = get_info_dict(s, game_id)
+        reviews_dict = get_reviews_dict(s, game_id)
         game_dict = {
             "export_date": auj,
             "name": get_entry_from_dict(info_dict, "name").strip(),
@@ -160,12 +160,11 @@ def main():
         }
 
         if args.extra_infos:
-            api_key = config["itad"]["api_key"]
             name = get_entry_from_dict(info_dict, "name").strip()
-            result_itad = get_itad_infos(api_key, game_id)
+            result_itad = get_itad_infos(s, config["itad"]["api_key"], game_id)
             if result_itad:
                 game_dict = {**game_dict, **result_itad}
-            result_opencritic = get_opencritic_infos(name)
+            result_opencritic = get_opencritic_infos(s, name)
             if result_opencritic:
                 game_dict = {**game_dict, **result_opencritic}
             result_howlongtobeat = get_howlongtobeat_infos(name)
@@ -176,7 +175,6 @@ def main():
         game_dict_list.append(game_dict)
 
         if args.separate_export:
-            # have to put the dict in a list for some reason
             df = pd.DataFrame([game_dict], index=[0])
             if game_dict.get("name"):
                 filename = f"Exports/{game_id}_{slugify(game_dict['name'])}_{auj}.csv"

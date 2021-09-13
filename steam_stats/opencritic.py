@@ -4,9 +4,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def get_opencritic_id(search):
+def get_opencritic_id(s, search):
     url = f"https://api.opencritic.com/api/game/search?criteria={search}"
-    result = get_json(url)
+    result = get_json(s, url)
 
     if result:
         return result[0]["id"]
@@ -14,11 +14,11 @@ def get_opencritic_id(search):
         return None
 
 
-def get_opencritic_infos(search):
-    opencritic_id = get_opencritic_id(search)
+def get_opencritic_infos(s, search):
+    opencritic_id = get_opencritic_id(s, search)
     if opencritic_id:
         url = f"https://api.opencritic.com/api/game/{opencritic_id}"
-        result = get_json(url)
+        result = get_json(s, url)
 
         return {
             "opencritic_tier": result["tier"],
