@@ -62,6 +62,14 @@ Export the playtime of all Steam games, owned games or wishlisted games of a ste
 python get_playtime.py -h
 ```
 
+## get_ids_from_curator_page.py
+
+Export the ids of a curator page (the page needs to be saved in an html file).
+
+```
+python get_ids_from_curator_page.py -h
+```
+
 ## steam_stats
 
 Export games info from a list of ids

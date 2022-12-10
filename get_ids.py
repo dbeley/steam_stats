@@ -13,24 +13,6 @@ logger = logging.getLogger()
 temps_debut = time.time()
 
 
-def slugify(value, allow_unicode=False):
-    """
-    Convert to ASCII if 'allow_unicode' is False. Convert spaces to hyphens.
-    Remove characters that aren't alphanumerics, underscores, or hyphens.
-    Convert to lowercase. Also strip leading and trailing whitespace.
-    """
-    value = str(value)
-    if allow_unicode:
-        value = unicodedata.normalize("NFKC", value)
-    else:
-        value = (
-            unicodedata.normalize("NFKD", value)
-            .encode("ascii", "ignore")
-            .decode("ascii")
-        )
-    value = re.sub(r"[^\w\s-]", "", value).strip().lower()
-    return re.sub(r"[-\s]+", "-", value)
-
 
 def get_all_ids(api_key):
     url = f"http://api.steampowered.com/ISteamApps/GetAppList/v0002/?key={api_key}&format=json"
@@ -38,9 +20,7 @@ def get_all_ids(api_key):
     logger.debug(f"get_all_ids JSON output: {json_dict}")
     dict_games = []
     for game in json_dict["applist"]["apps"]:
-        dict_game = {}
-        dict_game["appid"] = game["appid"]
-        dict_games.append(dict_game)
+        dict_games.append({"appid": game["appid"])
     return dict_games
 
 
@@ -50,9 +30,7 @@ def get_owned_ids(api_key, user_id):
     logger.debug(f"get_owned_ids JSON output: {json_dict}")
     dict_games = []
     for game in json_dict["response"]["games"]:
-        dict_game = {}
-        dict_game["appid"] = game["appid"]
-        dict_games.append(dict_game)
+        dict_games.append({"appid": game["appid"])
     return dict_games
 
 
@@ -67,9 +45,7 @@ def get_wishlist_ids(user_id):
         logger.debug(f"get_wishlist_ids JSON output: {json_dict}")
         if json_dict:
             for game_id in json_dict:
-                dict_game = {}
-                dict_game["appid"] = game_id
-                dict_games.append(dict_game)
+                dict_games.append({"appid": game["appid"])
         else:
             break
     return dict_games
@@ -78,24 +54,20 @@ def get_wishlist_ids(user_id):
 def main():
     args = parse_args()
     if not args.type:
-        logger.error("-t/--type argument required. Exiting.")
-        exit()
+        raise ValueError("-t/--type argument required. Exiting.")
     elif args.type not in ["all", "owned", "wishlist", "both"]:
-        logger.error("Type %s not supported. Exiting.", args.type)
-        exit()
+        raise ValueError("Type %s not supported. Exiting.", args.type)
 
     logger.debug("Reading config file")
     config = configparser.ConfigParser()
     try:
         config.read("config.ini")
     except Exception as e:
-        logger.error("No config file found. Be sure you have a config.ini file.")
-        exit()
+        raise FileNotFoundError("No config file found. Be sure you have a config.ini file.")
     try:
         api_key = config["steam"]["api_key"]
     except Exception as e:
-        logger.error("No api_key found. Check your config file.")
-        exit()
+        raise ValueError("No api_key found. Check your config file.")
 
     logger.debug("Reading user_id")
     if args.user_id:
@@ -104,10 +76,9 @@ def main():
         try:
             user_id = config["steam"]["user_id"]
         except Exception as e:
-            logger.error(
+            raise.ValueError(
                 "No user specified. Specify a user_id directive in your config file or use the -u/--user_id flag"
             )
-            exit()
 
     Path("Exports").mkdir(parents=True, exist_ok=True)
 

@@ -4,6 +4,9 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+bs4 = "*"
+requests = "*"
+lxml = "*"
 steam-stats = {editable = true, path = "."}
 
 [dev-packages]

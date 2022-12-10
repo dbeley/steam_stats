@@ -7,8 +7,6 @@ import argparse
 import configparser
 import datetime
 import pandas as pd
-import unicodedata
-import re
 import requests
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
@@ -18,41 +16,13 @@ from .itad import get_itad_infos
 from .hltb import get_howlongtobeat_infos
 from .opencritic import get_opencritic_infos
 from .requests import get_steam_json
+from .utils import slugify
 
 logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 START_TIME = time.time()
 DELAY = 60
-
-
-def get_entry_from_dict(title, entry):
-    if title:
-        if entry in title:
-            return title[entry]
-        else:
-            return ""
-    else:
-        return ""
-
-
-def slugify(value, allow_unicode=False):
-    """
-    Convert to ASCII if 'allow_unicode' is False. Convert spaces to hyphens.
-    Remove characters that aren't alphanumerics, underscores, or hyphens.
-    Convert to lowercase. Also strip leading and trailing whitespace.
-    """
-    value = str(value)
-    if allow_unicode:
-        value = unicodedata.normalize("NFKC", value)
-    else:
-        value = (
-            unicodedata.normalize("NFKD", value)
-            .encode("ascii", "ignore")
-            .decode("ascii")
-        )
-    value = re.sub(r"[^\w\s-]", "", value).strip().lower()
-    return re.sub(r"[-\s]+", "-", value)
 
 
 def get_info_dict(s, game_id):
@@ -97,14 +67,13 @@ def get_reviews_dict(s, game_id):
 
 def main():
     args = parse_args()
-    auj = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    export_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    export_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
     if not args.file:
-        logger.error("-f/--file argument not filled. Exiting.")
-        exit()
+        raise ValueError("-f/--file argument not filled. Exiting.")
     if not Path(args.file).is_file():
-        logger.error("%s is not a file. Exiting.", args.file)
-        exit()
+        raise FileNotFoundError("%s is not a file. Exiting.", args.file)
 
     logger.debug("Reading config file")
     config = configparser.ConfigParser()
@@ -127,46 +96,36 @@ def main():
         info_dict = get_info_dict(s, game_id)
         reviews_dict = get_reviews_dict(s, game_id)
         game_dict = {
-            "export_date": auj,
-            "name": get_entry_from_dict(info_dict, "name").strip(),
+            "export_date": export_time,
+            "name": info_dict.get("name").strip(),
             "appid": game_id,
-            "type": get_entry_from_dict(info_dict, "type"),
-            "required_age": get_entry_from_dict(info_dict, "required_age"),
-            "is_free": get_entry_from_dict(info_dict, "is_free"),
-            "developers": ", ".join(get_entry_from_dict(info_dict, "developers")),
-            "publishers": ", ".join(get_entry_from_dict(info_dict, "publishers")),
-            "windows": get_entry_from_dict(
-                get_entry_from_dict(info_dict, "platforms"), "windows"
-            ),
-            "linux": get_entry_from_dict(
-                get_entry_from_dict(info_dict, "platforms"), "linux"
-            ),
-            "mac": get_entry_from_dict(
-                get_entry_from_dict(info_dict, "platforms"), "mac"
-            ),
-            "genres": ", ".join(
-                [x["description"] for x in get_entry_from_dict(info_dict, "genres")]
-            ),
-            "release_date": get_entry_from_dict(
-                get_entry_from_dict(info_dict, "release_date"), "date"
-            ),
-            "num_reviews": get_entry_from_dict(reviews_dict, "num_reviews"),
-            "review_score": get_entry_from_dict(reviews_dict, "review_score"),
-            "review_score_desc": get_entry_from_dict(reviews_dict, "review_score_desc"),
-            "total_positive": get_entry_from_dict(reviews_dict, "total_positive"),
-            "total_negative": get_entry_from_dict(reviews_dict, "total_negative"),
-            "total_reviews": get_entry_from_dict(reviews_dict, "total_reviews"),
+            "type": info_dict.get("type"),
+            "required_age": info_dict.get("required_age"),
+            "is_free": info_dict.get("is_free"),
+            "developers": ", ".join(info_dict.get("developers")),
+            "publishers": ", ".join(info_dict.get("publishers")),
+            "windows": info_dict.get("platforms").get("windows"),
+            "linux": info_dict.get("platforms").get("linux"),
+            "mac": info_dict.get("platforms").get("mac"),
+            "genres": ", ".join([x["description"] for x in info_dict.get("genres")]),
+            "release_date": info_dict.get("release_date").get("date"),
+            "num_reviews": reviews_dict.get("num_reviews"),
+            "review_score": reviews_dict.get("review_score"),
+            "review_score_desc": reviews_dict.get("review_score_desc"),
+            "total_positive": reviews_dict.get("total_positive"),
+            "total_negative": reviews_dict.get("total_negative"),
+            "total_reviews": reviews_dict.get("total_reviews"),
             "url": f"https://store.steampowered.com/app/{game_id}",
         }
 
         if args.extra_infos:
-            name = get_entry_from_dict(info_dict, "name").strip()
+            name = info_dict.get("name").strip()
             result_itad = get_itad_infos(s, config["itad"]["api_key"], game_id)
             if result_itad:
                 game_dict = {**game_dict, **result_itad}
-            result_opencritic = get_opencritic_infos(s, name)
-            if result_opencritic:
-                game_dict = {**game_dict, **result_opencritic}
+            # result_opencritic = get_opencritic_infos(s, name)
+            # if result_opencritic:
+            #     game_dict = {**game_dict, **result_opencritic}
             result_howlongtobeat = get_howlongtobeat_infos(name)
             if result_howlongtobeat:
                 game_dict = {**game_dict, **result_howlongtobeat}
@@ -177,7 +136,9 @@ def main():
         if args.separate_export:
             df = pd.DataFrame([game_dict], index=[0])
             if game_dict.get("name"):
-                filename = f"Exports/{game_id}_{slugify(game_dict['name'])}_{auj}.csv"
+                filename = (
+                    f"Exports/{game_id}_{slugify(game_dict['name'])}_{export_date}.csv"
+                )
             else:
                 filename = f"Exports/{game_id}.csv"
             logger.debug("Writing partial export %s.", filename)
@@ -186,7 +147,9 @@ def main():
     df = pd.DataFrame(game_dict_list)
 
     filename = (
-        args.export_filename if args.export_filename else f"Exports/game_info_{auj}.csv"
+        args.export_filename
+        if args.export_filename
+        else f"Exports/game_info_{export_date}.csv"
     )
     logger.debug("Writing complete export %s.", filename)
     df.to_csv(filename, sep="\t", index=False)

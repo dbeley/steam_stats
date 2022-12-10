@@ -6,3 +6,5 @@ config.ini
 tags
 *.csv
 build/
+*.html
+*_fichiers/
