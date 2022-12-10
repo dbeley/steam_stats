@@ -25,20 +25,24 @@ START_TIME = time.time()
 DELAY = 60
 
 
-def get_info_dict(s, game_id):
+def get_info_dict(s, game_id: str):
     success = False
     n_tries = 0
     while True:
         n_tries += 1
         url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
         result = get_steam_json(s, url_info_game, game_id)
-        if result:
-            success = result[str(game_id)]["success"]
-            if success:
+        if game_result := result.get(str(game_id)):
+            if success := game_result.get("success"):
                 logger.debug("ID %s - success : %s", game_id, success)
-                info_dict = result[str(game_id)]["data"]
+                info_dict = game_result["data"]
                 return info_dict
             else:
+                logger.warning(
+                    "Couldn't extract infos for game %s: %s",
+                    game_id,
+                    game_result,
+                )
                 return None
         else:
             logger.warning(
@@ -93,58 +97,56 @@ def main():
 
     game_dict_list = []
     for game_id in tqdm(ids, dynamic_ncols=True):
-        info_dict = get_info_dict(s, game_id)
-        reviews_dict = get_reviews_dict(s, game_id)
-        game_dict = {
-            "export_date": export_time,
-            "name": info_dict.get("name").strip(),
-            "appid": game_id,
-            "type": info_dict.get("type"),
-            "required_age": info_dict.get("required_age"),
-            "is_free": info_dict.get("is_free"),
-            "developers": ", ".join(info_dict.get("developers", [])),
-            "publishers": ", ".join(info_dict.get("publishers", [])),
-            "windows": info_dict.get("platforms").get("windows"),
-            "linux": info_dict.get("platforms").get("linux"),
-            "mac": info_dict.get("platforms").get("mac"),
-            "genres": ", ".join(
-                [x["description"] for x in info_dict.get("genres", [])]
-            ),
-            "release_date": info_dict.get("release_date").get("date"),
-            "num_reviews": reviews_dict.get("num_reviews"),
-            "review_score": reviews_dict.get("review_score"),
-            "review_score_desc": reviews_dict.get("review_score_desc"),
-            "total_positive": reviews_dict.get("total_positive"),
-            "total_negative": reviews_dict.get("total_negative"),
-            "total_reviews": reviews_dict.get("total_reviews"),
-            "url": f"https://store.steampowered.com/app/{game_id}",
-        }
+        if info_dict := get_info_dict(s, game_id):
+            reviews_dict = get_reviews_dict(s, game_id)
+            game_dict = {
+                "export_date": export_time,
+                "name": info_dict.get("name").strip(),
+                "appid": game_id,
+                "type": info_dict.get("type"),
+                "required_age": info_dict.get("required_age"),
+                "is_free": info_dict.get("is_free"),
+                "developers": ", ".join(info_dict.get("developers", [])),
+                "publishers": ", ".join(info_dict.get("publishers", [])),
+                "windows": info_dict.get("platforms").get("windows"),
+                "linux": info_dict.get("platforms").get("linux"),
+                "mac": info_dict.get("platforms").get("mac"),
+                "genres": ", ".join(
+                    [x["description"] for x in info_dict.get("genres", [])]
+                ),
+                "release_date": info_dict.get("release_date").get("date"),
+                "num_reviews": reviews_dict.get("num_reviews"),
+                "review_score": reviews_dict.get("review_score"),
+                "review_score_desc": reviews_dict.get("review_score_desc"),
+                "total_positive": reviews_dict.get("total_positive"),
+                "total_negative": reviews_dict.get("total_negative"),
+                "total_reviews": reviews_dict.get("total_reviews"),
+                "url": f"https://store.steampowered.com/app/{game_id}",
+            }
 
-        if args.extra_infos:
-            name = info_dict.get("name").strip()
-            result_itad = get_itad_infos(s, config["itad"]["api_key"], game_id)
-            if result_itad:
-                game_dict = {**game_dict, **result_itad}
-            # result_opencritic = get_opencritic_infos(s, name)
-            # if result_opencritic:
-            #     game_dict = {**game_dict, **result_opencritic}
-            result_howlongtobeat = get_howlongtobeat_infos(name)
-            if result_howlongtobeat:
-                game_dict = {**game_dict, **result_howlongtobeat}
+            if args.extra_infos:
+                name = info_dict.get("name").strip()
+                result_itad = get_itad_infos(s, config["itad"]["api_key"], game_id)
+                if result_itad:
+                    game_dict = {**game_dict, **result_itad}
+                # result_opencritic = get_opencritic_infos(s, name)
+                # if result_opencritic:
+                #     game_dict = {**game_dict, **result_opencritic}
+                result_howlongtobeat = get_howlongtobeat_infos(name)
+                if result_howlongtobeat:
+                    game_dict = {**game_dict, **result_howlongtobeat}
 
-        logger.debug("Result for game %s: %s.", game_id, game_dict)
-        game_dict_list.append(game_dict)
+            logger.debug("Result for game %s: %s.", game_id, game_dict)
+            game_dict_list.append(game_dict)
 
-        if args.separate_export:
-            df = pd.DataFrame([game_dict], index=[0])
-            if game_dict.get("name"):
-                filename = (
-                    f"Exports/{game_id}_{slugify(game_dict['name'])}_{export_date}.csv"
-                )
-            else:
-                filename = f"Exports/{game_id}.csv"
-            logger.debug("Writing partial export %s.", filename)
-            df.to_csv(filename, sep="\t", index=False)
+            if args.separate_export:
+                df = pd.DataFrame([game_dict], index=[0])
+                if game_dict.get("name"):
+                    filename = f"Exports/{game_id}_{slugify(game_dict['name'])}_{export_date}.csv"
+                else:
+                    filename = f"Exports/{game_id}.csv"
+                logger.debug("Writing partial export %s.", filename)
+                df.to_csv(filename, sep="\t", index=False)
 
     df = pd.DataFrame(game_dict_list)
 
