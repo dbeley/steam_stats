@@ -18,7 +18,11 @@ api_key=api_key_here
 user_id=user_id_ere
 ```
 
-## get_ids.py
+## Helper scripts
+
+Those scripts are helpers to get the ids to use as inputs of `steam_stats`. They are located in the scripts folder.
+
+### get_ids.py
 
 Export the ids of all Steam games, owned games or wishlisted games of a steam user.
 
@@ -26,7 +30,7 @@ Export the ids of all Steam games, owned games or wishlisted games of a steam us
 python get_ids.py -h
 ```
 
-### Usage
+#### Usage
 
 ```
 python get_ids.py -t owned
@@ -36,7 +40,7 @@ python get_ids.py -t all
 python get_ids.py -t owned -u $STEAM_USER_ID
 ```
 
-### Help
+#### Help
 
 ```
 usage: get_ids.py [-h] [--debug] [-t TYPE] [-u USER_ID]
@@ -54,7 +58,7 @@ optional arguments:
 ```
 
 
-## get_playtime.py
+### get_playtime.py
 
 Export the playtime of all Steam games, owned games or wishlisted games of a steam user.
 
@@ -62,7 +66,7 @@ Export the playtime of all Steam games, owned games or wishlisted games of a ste
 python get_playtime.py -h
 ```
 
-## get_ids_from_curator_page.py
+### get_ids_from_curator_page.py
 
 Export the ids of a curator page (the page needs to be saved in an html file).
 
