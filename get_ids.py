@@ -13,7 +13,6 @@ logger = logging.getLogger()
 temps_debut = time.time()
 
 
-
 def get_all_ids(api_key):
     url = f"http://api.steampowered.com/ISteamApps/GetAppList/v0002/?key={api_key}&format=json"
     json_dict = requests.get(url).json()
@@ -63,7 +62,9 @@ def main():
     try:
         config.read("config.ini")
     except Exception as e:
-        raise FileNotFoundError("No config file found. Be sure you have a config.ini file.")
+        raise FileNotFoundError(
+            "No config file found. Be sure you have a config.ini file."
+        )
     try:
         api_key = config["steam"]["api_key"]
     except Exception as e:
@@ -76,7 +77,7 @@ def main():
         try:
             user_id = config["steam"]["user_id"]
         except Exception as e:
-            raise.ValueError(
+            raise ValueError(
                 "No user specified. Specify a user_id directive in your config file or use the -u/--user_id flag"
             )
 
