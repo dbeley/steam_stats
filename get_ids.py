@@ -44,7 +44,7 @@ def get_wishlist_ids(user_id):
         logger.debug(f"get_wishlist_ids JSON output: {json_dict}")
         if json_dict:
             for game_id in json_dict:
-                dict_games.append({"appid": game["appid"]})
+                dict_games.append({"appid": game_id})
         else:
             break
     return dict_games
