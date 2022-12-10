@@ -95,7 +95,6 @@ def main():
     for game_id in tqdm(ids, dynamic_ncols=True):
         info_dict = get_info_dict(s, game_id)
         reviews_dict = get_reviews_dict(s, game_id)
-        breakpoint()
         game_dict = {
             "export_date": export_time,
             "name": info_dict.get("name").strip(),
