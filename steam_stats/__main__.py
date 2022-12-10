@@ -95,6 +95,7 @@ def main():
     for game_id in tqdm(ids, dynamic_ncols=True):
         info_dict = get_info_dict(s, game_id)
         reviews_dict = get_reviews_dict(s, game_id)
+        breakpoint()
         game_dict = {
             "export_date": export_time,
             "name": info_dict.get("name").strip(),
@@ -102,13 +103,13 @@ def main():
             "type": info_dict.get("type"),
             "required_age": info_dict.get("required_age"),
             "is_free": info_dict.get("is_free"),
-            "developers": ", ".join(info_dict.get("developers"), ""),
-            "publishers": ", ".join(info_dict.get("publishers"), ""),
+            "developers": ", ".join(info_dict.get("developers", [])),
+            "publishers": ", ".join(info_dict.get("publishers", [])),
             "windows": info_dict.get("platforms").get("windows"),
             "linux": info_dict.get("platforms").get("linux"),
             "mac": info_dict.get("platforms").get("mac"),
             "genres": ", ".join(
-                [x["description"] for x in info_dict.get("genres", "")]
+                [x["description"] for x in info_dict.get("genres", [])]
             ),
             "release_date": info_dict.get("release_date").get("date"),
             "num_reviews": reviews_dict.get("num_reviews"),
