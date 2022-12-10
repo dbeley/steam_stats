@@ -20,7 +20,7 @@ def get_all_ids(api_key):
     logger.debug(f"get_all_ids JSON output: {json_dict}")
     dict_games = []
     for game in json_dict["applist"]["apps"]:
-        dict_games.append({"appid": game["appid"])
+        dict_games.append({"appid": game["appid"]})
     return dict_games
 
 
@@ -30,7 +30,7 @@ def get_owned_ids(api_key, user_id):
     logger.debug(f"get_owned_ids JSON output: {json_dict}")
     dict_games = []
     for game in json_dict["response"]["games"]:
-        dict_games.append({"appid": game["appid"])
+        dict_games.append({"appid": game["appid"]})
     return dict_games
 
 
@@ -45,7 +45,7 @@ def get_wishlist_ids(user_id):
         logger.debug(f"get_wishlist_ids JSON output: {json_dict}")
         if json_dict:
             for game_id in json_dict:
-                dict_games.append({"appid": game["appid"])
+                dict_games.append({"appid": game["appid"]})
         else:
             break
     return dict_games
