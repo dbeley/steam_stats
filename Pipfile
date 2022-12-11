@@ -8,6 +8,8 @@ bs4 = "*"
 requests = "*"
 lxml = "*"
 steam-stats = {editable = true, path = "."}
+openpyxl = "*"
+odfpy = "*"
 
 [dev-packages]
 

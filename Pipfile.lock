@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "71324abecd7373565025a76a9a39c5fb7d7b5cb6b401592acd5191339a336a1b"
+            "sha256": "c9ffedb94e4f8a4cac5be476937afebad70afcd2f7b4c84914c72ffed06da210"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -178,6 +178,22 @@
             ],
             "markers": "python_full_version >= '3.6.0'",
             "version": "==2.1.1"
+        },
+        "defusedxml": {
+            "hashes": [
+                "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69",
+                "sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61"
+            ],
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3, 3.4'",
+            "version": "==0.7.1"
+        },
+        "et-xmlfile": {
+            "hashes": [
+                "sha256:8eb9e2bc2f8c97e37a2dc85a09ecdcdec9d8a396530a6d5a33b30b9a92da0c5c",
+                "sha256:a2ba85d1d6a74ef63837eed693bcb89c3f752169b0e3e7ae5b16ca5e1b3deada"
+            ],
+            "markers": "python_version >= '3.6'",
+            "version": "==1.1.0"
         },
         "fake-useragent": {
             "hashes": [
@@ -470,6 +486,22 @@
             "markers": "python_version >= '3.10'",
             "version": "==1.23.5"
         },
+        "odfpy": {
+            "hashes": [
+                "sha256:db766a6e59c5103212f3cc92ec8dd50a0f3a02790233ed0b52148b70d3c438ec",
+                "sha256:fc3b8d1bc098eba4a0fda865a76d9d1e577c4ceec771426bcb169a82c5e9dfe0"
+            ],
+            "index": "pypi",
+            "version": "==1.4.1"
+        },
+        "openpyxl": {
+            "hashes": [
+                "sha256:0ab6d25d01799f97a9464630abacbb34aafecdcaa0ef3cba6d6b3499867d0355",
+                "sha256:e47805627aebcf860edb4edf7987b1309c1b3632f3750538ed962bbcc3bd7449"
+            ],
+            "index": "pypi",
+            "version": "==3.0.10"
+        },
         "pandas": {
             "hashes": [
                 "sha256:0183cb04a057cc38fde5244909fca9826d5d57c4a5b7390c0cc3fa7acd9fa883",
@@ -576,9 +608,9 @@
         },
         "steam": {
             "hashes": [
-                "sha256:2b77a4cd509816336efc5b980ddccce1bd37ec0136d27b8e457301c3e25ba827"
+                "sha256:2b5bd6911c0d4a7312f441b8d162b9d8d47c8bebb8efc6c8867393b0323fa52e"
             ],
-            "version": "==1.4.3"
+            "version": "==1.4.4"
         },
         "steam-stats": {
             "editable": true,
