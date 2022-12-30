@@ -118,9 +118,9 @@ def main():
                 "num_reviews": reviews_dict.get("num_reviews"),
                 "review_score": reviews_dict.get("review_score"),
                 "review_score_desc": reviews_dict.get("review_score_desc"),
-                "total_positive": reviews_dict.get("total_positive"),
-                "total_negative": reviews_dict.get("total_negative"),
-                "total_reviews": reviews_dict.get("total_reviews"),
+                "total_positive": int(reviews_dict.get("total_positive")),
+                "total_negative": int(reviews_dict.get("total_negative")),
+                "total_reviews": int(reviews_dict.get("total_reviews")),
                 "url": f"https://store.steampowered.com/app/{game_id}",
             }
 

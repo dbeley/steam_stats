@@ -58,9 +58,9 @@ def main():
     print([item for item, count in collections.Counter(content2).items() if count > 1])
     print(f"---------- Complete diff between {args.filename1} and {args.filename2}")
     print("\n".join(sorted(set(content1) ^ set(content2))))
-    print(f"---------- Files in {args.filename2} and not in {args.filename1}")
+    print(f"---------- Values in {args.filename2} and not in {args.filename1}")
     print("\n".join(sorted([item for item in content2 if item not in content1])))
-    print(f"---------- Files in {args.filename1} and not in {args.filename2}")
+    print(f"---------- Values in {args.filename1} and not in {args.filename2}")
     print("\n".join(sorted([item for item in content1 if item not in content2])))
 
     logger.info("Runtime : %.2f seconds." % (time.time() - start_time))
