@@ -13,8 +13,6 @@ from requests.adapters import HTTPAdapter
 from pathlib import Path
 from tqdm import tqdm
 from .itad import get_itad_infos
-from .hltb import get_howlongtobeat_infos
-from .opencritic import get_opencritic_infos
 from .requests import get_steam_json
 from .utils import slugify
 
@@ -129,12 +127,6 @@ def main():
                 result_itad = get_itad_infos(s, config["itad"]["api_key"], game_id)
                 if result_itad:
                     game_dict = {**game_dict, **result_itad}
-                # result_opencritic = get_opencritic_infos(s, name)
-                # if result_opencritic:
-                #     game_dict = {**game_dict, **result_opencritic}
-                result_howlongtobeat = get_howlongtobeat_infos(name)
-                if result_howlongtobeat:
-                    game_dict = {**game_dict, **result_howlongtobeat}
 
             logger.debug("Result for game %s: %s.", game_id, game_dict)
             game_dict_list.append(game_dict)
@@ -173,7 +165,7 @@ def parse_args():
     parser.add_argument(
         "-f", "--file", help="File containing the ids to parse", type=str
     )
-    parser.add_argument("--export_filename", help="Override export filename.", type=str)
+    parser.add_argument("--export_filename", help="Override export filename", type=str)
     parser.add_argument(
         "-s",
         "--separate_export",
@@ -183,7 +175,7 @@ def parse_args():
     )
     parser.add_argument(
         "--extra_infos",
-        help="Enable extra information fetching (ITAD, HLTB, opencritic).",
+        help="Enable extra information fetching (ITAD)",
         dest="extra_infos",
         action="store_true",
     )
