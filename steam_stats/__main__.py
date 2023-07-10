@@ -123,7 +123,6 @@ def main():
             }
 
             if args.extra_datas:
-                name = data_dict.get("name").strip()
                 result_itad = get_itad_data(s, config["itad"]["api_key"], game_id)
                 if result_itad:
                     game_dict = {**game_dict, **result_itad}
@@ -153,7 +152,9 @@ def main():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Export Steam games data from a list of appids")
+    parser = argparse.ArgumentParser(
+        description="Export Steam games data from a list of appids"
+    )
     parser.add_argument(
         "--debug",
         help="Display debugging information",

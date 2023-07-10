@@ -32,7 +32,7 @@ def get_curator_ids(soup):
         try:
             link = item.find("a")["href"]
             list_items.append({"appid": get_id_from_link(link)})
-        except Exception as e:
+        except Exception:
             logger.warning("Couldn't extract")
             breakpoint()
     return list_items

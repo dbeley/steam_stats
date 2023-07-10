@@ -5,7 +5,11 @@ logger = logging.getLogger(__name__)
 
 
 def get_itad_plain(s, api_key, appid):
-    url = f"https://api.isthereanydeal.com/v02/game/plain/?key={api_key}&shop=steam&game_id=app%2F{appid}&url=&title=&optional="
+    url = (
+        "https://api.isthereanydeal.com/"
+        f"v02/game/plain/?key={api_key}"
+        f"&shop=steam&game_id=app%2F{appid}&url=&title=&optional="
+    )
     result = get_json(s, url)
     logger.debug(f"{url}: {result}")
     if result:
@@ -16,7 +20,10 @@ def get_itad_plain(s, api_key, appid):
 
 
 def get_itad_historical_low(s, api_key, plain, region, country):
-    url = f"https://api.isthereanydeal.com/v01/game/lowest/?key={api_key}&plains={plain}&region={region}&country={country}"
+    url = (
+        "https://api.isthereanydeal.com/v01/game/lowest/"
+        f"?key={api_key}&plains={plain}&region={region}&country={country}"
+    )
     result = get_json(s, url)
     logger.debug(f"{url}: {result}")
     if result:
@@ -36,7 +43,11 @@ def get_itad_historical_low(s, api_key, plain, region, country):
 
 
 def get_itad_current_price(s, api_key, appid, plain, region, country):
-    url = f"https://api.isthereanydeal.com/v01/game/prices/?key={api_key}&plains={plain}&region={region}&country={country}&shops=steam&added=0"
+    url = (
+        "https://api.isthereanydeal.com/v01/game/prices/"
+        f"?key={api_key}&plains={plain}&region={region}&country={country}"
+        "&shops=steam&added=0"
+    )
     result = get_json(s, url)
     # for some reasons there are sometimes several entries for one game. Get the one with the correct Steam URL.
     correct_result = None

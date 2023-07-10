@@ -34,13 +34,13 @@ def main():
     config = configparser.ConfigParser()
     try:
         config.read("config.ini")
-    except Exception as e:
+    except Exception:
         raise FileNotFoundError(
             "No config file found. Be sure you have a config.ini file."
         )
     try:
         api_key = config["steam"]["api_key"]
-    except Exception as e:
+    except Exception:
         raise ValueError("No api_key found. Check your config file.")
 
     logger.debug("Reading user_id")
@@ -49,7 +49,7 @@ def main():
     else:
         try:
             user_id = config["steam"]["user_id"]
-        except Exception as e:
+        except Exception:
             raise ValueError(
                 "No user specified. Specify a user_id directive in your config file or use the -u/--user_id flag"
             )
