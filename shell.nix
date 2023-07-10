@@ -16,6 +16,7 @@ in pkgs.mkShell rec {
     pythonPackages.tqdm
     pythonPackages.openpyxl
     pythonPackages.odfpy
+    pythonPackages.aiohttp
 
   ];
 
