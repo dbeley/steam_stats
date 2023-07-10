@@ -126,7 +126,7 @@ def parse_args():
     parser.add_argument(
         "-u",
         "--user_id",
-        help="User id to extract the games info from (steamID64). Default : user in config.ini",
+        help="User id to extract the games data from (steamID64). Default : user in config.ini",
         type=str,
     )
     parser.add_argument(

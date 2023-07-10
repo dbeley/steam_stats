@@ -60,7 +60,7 @@ def get_itad_current_price(s, api_key, appid, plain, region, country):
         return None
 
 
-def get_itad_infos(s, api_key, appid):
+def get_itad_data(s, api_key, appid):
     # plain is the internal itad id for a game
     plain = get_itad_plain(s, api_key, appid)
     if plain:

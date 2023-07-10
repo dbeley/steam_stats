@@ -1,5 +1,5 @@
 """
-steam_stats : extract steam game informations from a list of steam appids.
+steam_stats : extract steam game data from a list of steam appids.
 """
 import logging
 import time
@@ -12,7 +12,7 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from pathlib import Path
 from tqdm import tqdm
-from .itad import get_itad_infos
+from .itad import get_itad_data
 from .requests import get_steam_json
 from .utils import slugify
 
@@ -23,28 +23,28 @@ START_TIME = time.time()
 DELAY = 60
 
 
-def get_info_dict(s, game_id: str):
+def get_data_dict(s, game_id: str):
     success = False
     n_tries = 0
     while True:
         n_tries += 1
-        url_info_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
-        result = get_steam_json(s, url_info_game, game_id)
+        url_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
+        result = get_steam_json(s, url_game, game_id)
         if game_result := result.get(str(game_id)):
             if success := game_result.get("success"):
                 logger.debug("ID %s - success : %s", game_id, success)
-                info_dict = game_result["data"]
-                return info_dict
+                data_dict = game_result["data"]
+                return data_dict
             else:
                 logger.warning(
-                    "Couldn't extract infos for game %s: %s",
+                    "Couldn't extract data for game %s: %s",
                     game_id,
                     game_result,
                 )
                 return None
         else:
             logger.warning(
-                f"get_info_dict: No result for {url_info_game}. Retrying in {DELAY} seconds: try {n_tries}."
+                f"get_data_dict: No result for {url_game}. Retrying in {DELAY} seconds: try {n_tries}."
             )
             time.sleep(DELAY)
 
@@ -95,24 +95,24 @@ def main():
 
     game_dict_list = []
     for game_id in tqdm(ids, dynamic_ncols=True):
-        if info_dict := get_info_dict(s, game_id):
+        if data_dict := get_data_dict(s, game_id):
             reviews_dict = get_reviews_dict(s, game_id)
             game_dict = {
                 "export_date": export_time,
-                "name": info_dict.get("name").strip(),
+                "name": data_dict.get("name").strip(),
                 "appid": game_id,
-                "type": info_dict.get("type"),
-                "required_age": info_dict.get("required_age"),
-                "is_free": info_dict.get("is_free"),
-                "developers": ", ".join(info_dict.get("developers", [])),
-                "publishers": ", ".join(info_dict.get("publishers", [])),
-                "windows": info_dict.get("platforms").get("windows"),
-                "linux": info_dict.get("platforms").get("linux"),
-                "mac": info_dict.get("platforms").get("mac"),
+                "type": data_dict.get("type"),
+                "required_age": data_dict.get("required_age"),
+                "is_free": data_dict.get("is_free"),
+                "developers": ", ".join(data_dict.get("developers", [])),
+                "publishers": ", ".join(data_dict.get("publishers", [])),
+                "windows": data_dict.get("platforms").get("windows"),
+                "linux": data_dict.get("platforms").get("linux"),
+                "mac": data_dict.get("platforms").get("mac"),
                 "genres": ", ".join(
-                    [x["description"] for x in info_dict.get("genres", [])]
+                    [x["description"] for x in data_dict.get("genres", [])]
                 ),
-                "release_date": info_dict.get("release_date").get("date"),
+                "release_date": data_dict.get("release_date").get("date"),
                 "num_reviews": reviews_dict.get("num_reviews"),
                 "review_score": reviews_dict.get("review_score"),
                 "review_score_desc": reviews_dict.get("review_score_desc"),
@@ -122,9 +122,9 @@ def main():
                 "url": f"https://store.steampowered.com/app/{game_id}",
             }
 
-            if args.extra_infos:
-                name = info_dict.get("name").strip()
-                result_itad = get_itad_infos(s, config["itad"]["api_key"], game_id)
+            if args.extra_datas:
+                name = data_dict.get("name").strip()
+                result_itad = get_itad_data(s, config["itad"]["api_key"], game_id)
                 if result_itad:
                     game_dict = {**game_dict, **result_itad}
 
@@ -153,7 +153,7 @@ def main():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Export games info from a list of ids")
+    parser = argparse.ArgumentParser(description="Export Steam games data from a list of appids")
     parser.add_argument(
         "--debug",
         help="Display debugging information",
@@ -163,7 +163,7 @@ def parse_args():
         default=logging.INFO,
     )
     parser.add_argument(
-        "-f", "--file", help="File containing the ids to parse", type=str
+        "-f", "--file", help="File containing the appids to parse", type=str
     )
     parser.add_argument("--export_filename", help="Override export filename", type=str)
     parser.add_argument(
@@ -174,12 +174,12 @@ def parse_args():
         action="store_true",
     )
     parser.add_argument(
-        "--extra_infos",
-        help="Enable extra information fetching (ITAD)",
-        dest="extra_infos",
+        "--extra_data",
+        help="Enable extra data fetching (ITAD)",
+        dest="extra_data",
         action="store_true",
     )
-    parser.set_defaults(separate_export=False, extra_infos=False)
+    parser.set_defaults(separate_export=False, extra_data=False)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.loglevel)
