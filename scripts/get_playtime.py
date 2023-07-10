@@ -1,3 +1,4 @@
+import os
 import logging
 import time
 import argparse
@@ -39,7 +40,9 @@ def main():
             "No config file found. Be sure you have a config.ini file."
         )
     try:
-        api_key = config["steam"]["api_key"]
+        api_key = os.environ.get("STEAM_API_KEY")
+        if not api_key:
+            api_key = config["steam"]["api_key"]
     except Exception:
         raise ValueError("No api_key found. Check your config file.")
 
