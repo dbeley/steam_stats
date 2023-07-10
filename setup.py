@@ -20,5 +20,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: POSIX :: Linux",
     ],
-    install_requires=["requests", "pandas", "steam", "tqdm", "howlongtobeatpy"],
+    install_requires=["requests", "pandas", "steam", "tqdm"],
 )
