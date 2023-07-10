@@ -10,12 +10,73 @@
 
 All the scripts need a config.ini file with a valid steam api key and a steam id (see config_sample.ini for an example).
 
+If you want to extract latest price information from IsThereAnyDeal, you can also set it in the config file. You will need to create an API key on their website and use `steam_stats` with the `--extra_infos` parameter.
+
 - Sample config.ini file :
 
 ```
 [steam]
 api_key=api_key_here
 user_id=user_id_ere
+[itad]
+api_key=api_key_here
+```
+
+## Usage
+
+Export games info from a list of ids
+
+## Installation in a virtualenv (recommended)
+
+```
+pipenv install '-e .'
+```
+
+## Usage
+
+You can use the `get_ids.py` script to export a list of appids (see below).
+
+`steam_stats` expects a readable csv file with a column `appid` containg Steam appids as input.
+
+Given a steam_games.csv file containing :
+
+```
+name;appid
+Dead Cells;152266
+Wizard of Legend;445980
+Hollow Knight;367520
+Lethis Path of Progress;359230
+Banished;242920
+```
+
+You can call steam_stats with the command :
+
+```
+steam_stats -f steam_games.csv
+```
+
+### Help
+
+```
+steam_stats -h
+```
+
+```
+usage: steam_stats [-h] [--debug] [-f FILE]
+                   [--export_filename EXPORT_FILENAME] [-s] [--extra_infos]
+
+Export games info from a list of ids
+
+options:
+  -h, --help            show this help message and exit
+  --debug               Display debugging information
+  -f FILE, --file FILE  File containing the ids to parse
+  --export_filename EXPORT_FILENAME
+                        Override export filename
+  -s, --separate_export
+                        Export separately (one file per game + the global
+                        file)
+  --extra_infos         Enable extra information fetching (ITAD)
 ```
 
 ## Helper scripts
@@ -72,60 +133,4 @@ Export the ids of a curator page (the page needs to be saved in an html file).
 
 ```
 python get_ids_from_curator_page.py -h
-```
-
-## steam_stats
-
-Export games info from a list of ids
-
-## Installation in a virtualenv (recommended)
-
-```
-pipenv install '-e .'
-```
-
-## Usage
-
-You can use the `get_ids.py` script to export a list of appids.
-
-Given a steam_games.csv file containing :
-
-```
-name;appid
-Dead Cells;152266
-Wizard of Legend;445980
-Hollow Knight;367520
-Lethis Path of Progress;359230
-Banished;242920
-```
-
-You can call steam_stats with the command :
-
-```
-steam_stats -f steam_games.csv
-```
-
-## Help
-
-```
-steam_stats -h
-```
-
-```
-usage: steam_stats [-h] [--debug] [-f FILE]
-                   [--export_filename EXPORT_FILENAME] [-s] [--extra_infos]
-
-Export games info from a list of ids
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --debug               Display debugging information
-  -f FILE, --file FILE  File containing the ids to parse
-  --export_filename EXPORT_FILENAME
-                        Override export filename.
-  -s, --separate_export
-                        Export separately (one file per game + the global
-                        file)
-  --extra_infos         Enable extra information fetching (ITAD, HLTB,
-                        opencritic).
 ```
