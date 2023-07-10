@@ -25,7 +25,7 @@ The script `get_ids.py` is included to fetch appids of Steam games (several opti
 
 All the scripts need a config.ini file with a valid steam api key and a steam id (see config_sample.ini for an example).
 
-If you want to extract latest price information from IsThereAnyDeal, you can also set it in the config file. You will need to create an API key on their website and use `steam_stats` with the `--extra_data` parameter.
+If you want to extract latest price information from IsThereAnyDeal, you can also set it in the config file. You will need to create an API key on their website and use `steam_stats` with the `--export_extra_data` parameter.
 
 - Sample config.ini file :
 
@@ -74,7 +74,7 @@ steam_stats -h
 
 ```
 usage: steam_stats [-h] [--debug] [-f FILE]
-                   [--export_filename EXPORT_FILENAME] [-s] [--extra_data]
+                   [--export_filename EXPORT_FILENAME] [-s] [--export_extra_data]
 
 Export Steam games data from a list of appids
 
@@ -87,7 +87,7 @@ options:
   -s, --separate_export
                         Export separately (one file per game + the global
                         file)
-  --extra_data          Enable extra data fetching (ITAD)
+  --export_extra_data          Enable extra data fetching (ITAD)
 ```
 
 ## Helper scripts

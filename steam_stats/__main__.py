@@ -122,7 +122,7 @@ def main():
                 "url": f"https://store.steampowered.com/app/{game_id}",
             }
 
-            if args.extra_datas:
+            if args.export_extra_data:
                 result_itad = get_itad_data(s, config["itad"]["api_key"], game_id)
                 if result_itad:
                     game_dict = {**game_dict, **result_itad}
@@ -175,12 +175,12 @@ def parse_args():
         action="store_true",
     )
     parser.add_argument(
-        "--extra_data",
+        "--export_extra_data",
         help="Enable extra data fetching (ITAD)",
-        dest="extra_data",
+        dest="export_extra_data",
         action="store_true",
     )
-    parser.set_defaults(separate_export=False, extra_data=False)
+    parser.set_defaults(separate_export=False, export_extra_data=False)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.loglevel)
