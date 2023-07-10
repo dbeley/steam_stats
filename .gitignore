@@ -9,3 +9,4 @@ build/
 *.html
 *_fichiers/
 *.txt
+.direnv/
