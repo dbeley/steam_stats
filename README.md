@@ -1,6 +1,6 @@
 # steam_stats
 
-`steam_stats` is an python command-line utility to extract data from Steam games based on their appids.
+`steam_stats` is a python command-line utility to extract data from Steam games based on their appids.
 
 Data collected include:
 
