@@ -55,7 +55,6 @@ def main():
     elif args.type not in ["all", "owned", "wishlist", "both"]:
         raise ValueError("Type %s not supported. Exiting.", args.type)
 
-    logger.debug("Reading config file")
     config = configparser.ConfigParser()
     try:
         config.read("config.ini")
@@ -70,13 +69,12 @@ def main():
     except Exception:
         raise ValueError("No api_key found. Check your config file.")
 
-    logger.debug("Reading user_id")
     if args.user_id:
         user_id = args.user_id
     else:
         try:
-            api_key = os.environ.get("STEAM_USERID")
-            if not api_key:
+            user_id = os.environ.get("STEAM_USERID")
+            if not user_id:
                 user_id = config["steam"]["user_id"]
         except Exception:
             raise ValueError(

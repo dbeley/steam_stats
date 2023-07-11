@@ -31,7 +31,6 @@ def get_playtime(api_key, user_id):
 def main():
     args = parse_args()
 
-    logger.debug("Reading config file")
     config = configparser.ConfigParser()
     try:
         config.read("config.ini")
@@ -46,12 +45,13 @@ def main():
     except Exception:
         raise ValueError("No api_key found. Check your config file.")
 
-    logger.debug("Reading user_id")
     if args.user_id:
         user_id = args.user_id
     else:
         try:
-            user_id = config["steam"]["user_id"]
+            user_id = os.environ.get("STEAM_USERID")
+            if not user_id:
+                user_id = config["steam"]["user_id"]
         except Exception:
             raise ValueError(
                 "No user specified. Specify a user_id directive in your config file or use the -u/--user_id flag"
