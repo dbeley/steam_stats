@@ -4,7 +4,6 @@ let
   pythonPackages = python3Packages;
 in pkgs.mkShell rec {
   name = "steamStatsPythonEnv";
-  venvDir = "~/Documents/venvs/steam_stats_venv";
   buildInputs = [
     pythonPackages.python
 
@@ -14,10 +13,8 @@ in pkgs.mkShell rec {
     pythonPackages.requests
     pythonPackages.lxml
     pythonPackages.tqdm
-    pythonPackages.openpyxl
-    pythonPackages.odfpy
-    pythonPackages.aiohttp
 
+    pre-commit
   ];
 
 }
