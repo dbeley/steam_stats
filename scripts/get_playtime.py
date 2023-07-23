@@ -11,21 +11,41 @@ logger = logging.getLogger()
 temps_debut = time.time()
 
 
+def get_playtime_recent(api_key, user_id):
+    url_recent = (
+        "https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v1/"
+        f"?key={api_key}&steamid={user_id}"
+    )
+    json_dict_recent = requests.get(url_recent).json()
+    games_list_recent = []
+    for game in json_dict_recent["response"]["games"]:
+        games_list_recent.append(
+            {
+                "appid": game["appid"],
+                "playtime_2weeks": int(game["playtime_2weeks"]),
+            }
+        )
+    return games_list_recent
+
+
 def get_playtime(api_key, user_id):
-    url = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={api_key}&steamid={user_id}&format=json"
+    url = (
+        "http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/"
+        f"?key={api_key}&steamid={user_id}&format=json"
+    )
     json_dict = requests.get(url).json()
-    dict_games = []
+    games_list = []
     for game in json_dict["response"]["games"]:
-        dict_games.append(
+        games_list.append(
             {
                 "appid": game["appid"],
                 "playtime": game["playtime_forever"],
-                "playtime windows": game["playtime_windows_forever"],
-                "playtime mac": game["playtime_mac_forever"],
-                "playtime linux": game["playtime_linux_forever"],
+                "playtime_windows": game["playtime_windows_forever"],
+                "playtime_mac": game["playtime_mac_forever"],
+                "playtime_linux": game["playtime_linux_forever"],
             }
         )
-    return dict_games
+    return games_list
 
 
 def main():
@@ -60,8 +80,12 @@ def main():
     Path("Exports").mkdir(parents=True, exist_ok=True)
 
     dict_games = get_playtime(api_key, user_id)
+    dict_games_recent = get_playtime_recent(api_key, user_id)
 
     df = pd.DataFrame(dict_games)
+    df_recent = pd.DataFrame(dict_games_recent)
+    df = pd.merge(df, df_recent, how="left", on=["appid"])
+    df["playtime_2weeks"] = df["playtime_2weeks"].fillna(0.0).astype(int)
     filename = args.filename if args.filename else f"Exports/playtime_{user_id}.csv"
     df.to_csv(filename, sep="\t", index=False)
     logger.info(f"Output file: {filename}.")
