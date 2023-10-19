@@ -69,7 +69,7 @@ def main():
         user_id = args.user_id
     else:
         try:
-            user_id = os.environ.get("STEAM_USERID")
+            user_id = os.environ.get("STEAM_USER_ID")
             if not user_id:
                 user_id = config["steam"]["user_id"]
         except Exception:
