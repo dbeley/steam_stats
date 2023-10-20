@@ -1,6 +1,7 @@
 """
 steam_stats : extract steam game data from a list of steam appids.
 """
+import os
 import logging
 import time
 import argparse
@@ -74,6 +75,39 @@ def get_reviews_dict(s, game_id):
     return reviews_dict
 
 
+def read_config():
+    logger.debug("Reading config file")
+    config = configparser.ConfigParser()
+    try:
+        config.read("config.ini")
+    except Exception:
+        raise FileNotFoundError(
+            "No config file found. Be sure you have a config.ini file."
+        )
+    try:
+        api_key = os.environ.get("STEAM_API_KEY")
+        if not api_key:
+            api_key = config["steam"]["api_key"]
+    except Exception:
+        raise ValueError("No api_key found. Check your config file.")
+
+    try:
+        user_id = os.environ.get("STEAM_USER_ID")
+        if not user_id:
+            user_id = config["steam"]["user_id"]
+    except Exception:
+        raise ValueError(
+            "No user specified. Specify a user_id directive in your config file or use the -u/--user_id flag"
+        )
+    try:
+        itad_api_key = os.environ.get("ITAD_API_KEY")
+        if not itad_api_key:
+            itad_api_key = config["itad"]["api_key"]
+    except Exception:
+        raise ValueError("No itad api_key found. Check your config file.")
+    return api_key, user_id, itad_api_key
+
+
 def main():
     args = parse_args()
     export_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -84,9 +118,7 @@ def main():
     if not Path(args.file).is_file():
         raise FileNotFoundError("%s is not a file. Exiting.", args.file)
 
-    logger.debug("Reading config file")
-    config = configparser.ConfigParser()
-    config.read("config.ini")
+    api_key, user_id, itad_api_key = read_config()
 
     logger.debug("Reading CSV file")
     df = pd.read_csv(args.file, sep="\t|;", engine="python")
@@ -104,9 +136,7 @@ def main():
     for game_id in tqdm(ids, dynamic_ncols=True):
         if data_dict := get_data_dict(s, game_id):
             reviews_dict = get_reviews_dict(s, game_id)
-            achievements_dict = get_achievements_dict(
-                s, config["steam"]["api_key"], config["steam"]["user_id"], game_id
-            )
+            achievements_dict = get_achievements_dict(s, api_key, user_id, game_id)
             game_dict = {
                 "export_date": export_time,
                 "name": data_dict["name"].strip(),
@@ -135,7 +165,7 @@ def main():
             }
 
             if args.export_extra_data:
-                result_itad = get_itad_data(s, config["itad"]["api_key"], game_id)
+                result_itad = get_itad_data(s, itad_api_key, game_id)
                 if result_itad:
                     game_dict = {**game_dict, **result_itad}
 
