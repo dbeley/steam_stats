@@ -78,12 +78,7 @@ def get_reviews_dict(s, game_id):
 def read_config():
     logger.debug("Reading config file")
     config = configparser.ConfigParser()
-    try:
-        config.read("config.ini")
-    except Exception:
-        raise FileNotFoundError(
-            "No config file found. Be sure you have a config.ini file."
-        )
+    config.read("config.ini")
     try:
         api_key = os.environ.get("STEAM_API_KEY")
         if not api_key:
@@ -99,13 +94,19 @@ def read_config():
         raise ValueError(
             "No user specified. Specify a user_id directive in your config file or use the -u/--user_id flag"
         )
+    return api_key, user_id
+
+
+def read_itad_config():
+    config = configparser.ConfigParser()
+    config.read("config.ini")
     try:
         itad_api_key = os.environ.get("ITAD_API_KEY")
         if not itad_api_key:
             itad_api_key = config["itad"]["api_key"]
     except Exception:
         raise ValueError("No itad api_key found. Check your config file.")
-    return api_key, user_id, itad_api_key
+    return itad_api_key
 
 
 def main():
@@ -118,7 +119,7 @@ def main():
     if not Path(args.file).is_file():
         raise FileNotFoundError("%s is not a file. Exiting.", args.file)
 
-    api_key, user_id, itad_api_key = read_config()
+    api_key, user_id = read_config()
 
     logger.debug("Reading CSV file")
     df = pd.read_csv(args.file, sep="\t|;", engine="python")
@@ -165,6 +166,7 @@ def main():
             }
 
             if args.export_extra_data:
+                itad_api_key = read_itad_config()
                 result_itad = get_itad_data(s, itad_api_key, game_id)
                 if result_itad:
                     game_dict = {**game_dict, **result_itad}
