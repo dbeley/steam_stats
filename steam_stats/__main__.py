@@ -14,7 +14,6 @@ from pathlib import Path
 from tqdm import tqdm
 from .itad import get_itad_data
 from .requests import get_steam_json
-from .utils import slugify
 
 logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -23,48 +22,52 @@ START_TIME = time.time()
 DELAY = 60
 
 
-def get_data_dict(s, game_id: str):
-    success = False
-    n_tries = 0
-    while True:
-        n_tries += 1
-        url_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
-        result = get_steam_json(s, url_game, game_id)
-        if game_result := result.get(str(game_id)):
-            if success := game_result.get("success"):
-                logger.debug("ID %s - success : %s", game_id, success)
-                data_dict = game_result["data"]
-                return data_dict
-            else:
-                logger.warning(
-                    "Couldn't extract data for game %s: %s",
-                    game_id,
-                    game_result,
-                )
-                return None
-        else:
-            logger.warning(
-                f"get_data_dict: No result for {url_game}. Retrying in {DELAY} seconds: try {n_tries}."
-            )
-            time.sleep(DELAY)
+def get_achievements_dict(s, api_key, user_id, app_id):
+    url_achievements = (
+        "https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/"
+        f"?appid={app_id}&key={api_key}&steamid={user_id}"
+    )
+    result = get_steam_json(s, url_achievements, app_id)
+    if "error" in result["playerstats"].keys():
+        if result["playerstats"]["error"] == "Requested app has no stats":
+            return {}
+        breakpoint()
+    return {
+        "appid": app_id,
+        "achieved": sum(
+            [
+                achievement["achieved"] == 1
+                for achievement in result["playerstats"]["achievements"]
+            ]
+        ),
+        "total_achievements": len(result["playerstats"]["achievements"]),
+    }
+
+
+def get_data_dict(s, game_id: str) -> dict[str, str]:
+    url_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
+    result = get_steam_json(s, url_game, game_id)
+    game_result = result[str(game_id)]
+    if success := game_result.get("success"):
+        logger.debug("ID %s - success : %s", game_id, success)
+        data_dict = game_result["data"]
+        return data_dict
+    else:
+        logger.warning(
+            "Couldn't extract data for game %s: %s",
+            game_id,
+            game_result,
+        )
+        return {}
 
 
 def get_reviews_dict(s, game_id):
-    n_tries = 0
-    while True:
-        n_tries += 1
-        url_reviews = (
-            f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
-        )
-        result = get_steam_json(s, url_reviews, game_id)
-        if result:
-            reviews_dict = result["query_summary"]
-            return reviews_dict
-        else:
-            logger.warning(
-                f"get_reviews_dict: No result for {url_reviews}. Retrying in {DELAY} seconds: try {n_tries}."
-            )
-            time.sleep(DELAY)
+    url_reviews = (
+        f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
+    )
+    result = get_steam_json(s, url_reviews, game_id)
+    reviews_dict = result["query_summary"]
+    return reviews_dict
 
 
 def main():
@@ -97,29 +100,34 @@ def main():
     for game_id in tqdm(ids, dynamic_ncols=True):
         if data_dict := get_data_dict(s, game_id):
             reviews_dict = get_reviews_dict(s, game_id)
+            achievements_dict = get_achievements_dict(
+                s, config["steam"]["api_key"], config["steam"]["user_id"], game_id
+            )
             game_dict = {
                 "export_date": export_time,
-                "name": data_dict.get("name").strip(),
+                "name": data_dict["name"].strip(),
                 "appid": game_id,
                 "type": data_dict.get("type"),
                 "required_age": data_dict.get("required_age"),
                 "is_free": data_dict.get("is_free"),
                 "developers": ", ".join(data_dict.get("developers", [])),
                 "publishers": ", ".join(data_dict.get("publishers", [])),
-                "windows": data_dict.get("platforms").get("windows"),
-                "linux": data_dict.get("platforms").get("linux"),
-                "mac": data_dict.get("platforms").get("mac"),
+                "windows": data_dict["platforms"]["windows"],
+                "linux": data_dict["platforms"]["linux"],
+                "mac": data_dict["platforms"]["mac"],
                 "genres": ", ".join(
                     [x["description"] for x in data_dict.get("genres", [])]
                 ),
-                "release_date": data_dict.get("release_date").get("date"),
+                "release_date": data_dict["release_date"]["date"],
                 "num_reviews": reviews_dict.get("num_reviews"),
                 "review_score": reviews_dict.get("review_score"),
                 "review_score_desc": reviews_dict.get("review_score_desc"),
-                "total_positive": int(reviews_dict.get("total_positive")),
-                "total_negative": int(reviews_dict.get("total_negative")),
-                "total_reviews": int(reviews_dict.get("total_reviews")),
+                "total_positive": reviews_dict.get("total_positive"),
+                "total_negative": reviews_dict.get("total_negative"),
+                "total_reviews": reviews_dict.get("total_reviews"),
                 "url": f"https://store.steampowered.com/app/{game_id}",
+                "achieved_achievements": achievements_dict.get("achieved"),
+                "total_achievements": achievements_dict.get("total_achievements"),
             }
 
             if args.export_extra_data:
@@ -130,16 +138,16 @@ def main():
             logger.debug("Result for game %s: %s.", game_id, game_dict)
             game_dict_list.append(game_dict)
 
-            if args.separate_export:
-                df = pd.DataFrame([game_dict], index=[0])
-                if game_dict.get("name"):
-                    filename = f"Exports/{game_id}_{slugify(game_dict['name'])}_{export_date}.csv"
-                else:
-                    filename = f"Exports/{game_id}.csv"
-                logger.debug("Writing partial export %s.", filename)
-                df.to_csv(filename, sep="\t", index=False)
-
     df = pd.DataFrame(game_dict_list)
+    df = df.astype(
+        {
+            "achieved_achievements": "Int64",
+            "total_achievements": "Int64",
+            "total_positive": "Int64",
+            "total_negative": "Int64",
+            "total_reviews": "Int64",
+        }
+    )
 
     filename = (
         args.export_filename
@@ -168,19 +176,12 @@ def parse_args():
     )
     parser.add_argument("--export_filename", help="Override export filename", type=str)
     parser.add_argument(
-        "-s",
-        "--separate_export",
-        help="Export separately (one file per game + the global file)",
-        dest="separate_export",
-        action="store_true",
-    )
-    parser.add_argument(
         "--export_extra_data",
         help="Enable extra data fetching (ITAD)",
         dest="export_extra_data",
         action="store_true",
     )
-    parser.set_defaults(separate_export=False, export_extra_data=False)
+    parser.set_defaults(export_extra_data=False)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.loglevel)
