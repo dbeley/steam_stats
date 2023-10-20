@@ -39,8 +39,12 @@ def get_achievements_dict(s, api_key, user_id, app_id):
                 achievement["achieved"] == 1
                 for achievement in result["playerstats"]["achievements"]
             ]
-        ),
-        "total_achievements": len(result["playerstats"]["achievements"]),
+        )
+        if "achievements" in result["playerstats"].keys()
+        else None,
+        "total_achievements": len(result["playerstats"]["achievements"])
+        if "achievements" in result["playerstats"].keys()
+        else None,
     }
 
 
