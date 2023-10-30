@@ -2,8 +2,7 @@ with import <nixpkgs> { };
 
 let
   pythonPackages = python3Packages;
-in pkgs.mkShell rec {
-  name = "steamStatsPythonEnv";
+in pkgs.mkShell {
   buildInputs = [
     pythonPackages.python
 
@@ -13,6 +12,7 @@ in pkgs.mkShell rec {
     pythonPackages.requests
     pythonPackages.lxml
     pythonPackages.tqdm
+    pythonPackages.odfpy
 
     pre-commit
   ];
