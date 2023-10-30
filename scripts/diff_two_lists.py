@@ -17,7 +17,7 @@ def read_from_file(filename: str):
     return content
 
 
-def read_field_from_file(filename: str, fieldname: str):
+def read_field_from_file(filename: str, fieldname: str, sheet_name: str | int):
     if not Path(filename).is_file():
         raise FileNotFoundError("%s is not a valid file.", filename)
     if Path(filename).suffix == ".csv":
@@ -31,7 +31,7 @@ def read_field_from_file(filename: str, fieldname: str):
         ".ods",
         ".odt",
     ]:
-        df = pd.read_excel(filename, engine=None, sheet_name=1)
+        df = pd.read_excel(filename, engine=None, sheet_name=sheet_name)
     else:
         raise ValueError(
             "File %s with type %s not supported.", filename, Path(filename).suffix
@@ -45,9 +45,9 @@ def main():
     logger.debug("Reading files")
     if args.fieldname1 and args.fieldname2:
         print(f"Reading field {args.fieldname1} for file {args.filename1}")
-        content1 = read_field_from_file(args.filename1, args.fieldname1)
+        content1 = read_field_from_file(args.filename1, args.fieldname1, args.sheetname1)
         print(f"Reading field {args.fieldname2} for file {args.filename2}")
-        content2 = read_field_from_file(args.filename2, args.fieldname2)
+        content2 = read_field_from_file(args.filename2, args.fieldname2, args.sheetname2)
     else:
         content1 = read_from_file(args.filename1)
         content2 = read_from_file(args.filename2)
@@ -91,6 +91,12 @@ def parse_args():
         type=str,
     )
     parser.add_argument(
+        "-sn1",
+        "--sheetname1",
+        help="Sheetname for file 1 (optional)",
+        default=1
+    )
+    parser.add_argument(
         "-f2",
         "--filename2",
         help="File containing data",
@@ -101,6 +107,12 @@ def parse_args():
         "--fieldname2",
         help="Field for the file 2",
         type=str,
+    )
+    parser.add_argument(
+        "-sn2",
+        "--sheetname2",
+        help="Sheetname for file 2 (optional)",
+        default=1
     )
     args = parser.parse_args()
 
