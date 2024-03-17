@@ -26,7 +26,7 @@ def get_itad_historical_low(s, api_key, plain, region, country):
     )
     result = get_json(s, url)
     logger.debug(f"{url}: {result}")
-    if result:
+    if result and plain in result["data"]:
         return {
             "historical_low_price": result["data"][plain]["price"]
             if "price" in result["data"][plain]
