@@ -32,19 +32,14 @@ def get_owned_ids(api_key, user_id):
 
 
 def get_wishlist_ids(user_id):
-    page = 0
     dict_games = []
-    while True:
-        url = f"https://store.steampowered.com/wishlist/profiles/{user_id}/wishlistdata/?p={page}"
-        page += 1
-        logger.info("Fetching page %s.", url)
-        json_dict = requests.get(url).json()
-        logger.debug(f"get_wishlist_ids JSON output: {json_dict}")
-        if json_dict:
-            for game_id in json_dict:
-                dict_games.append({"appid": game_id})
-        else:
-            break
+    url = f"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={user_id}"
+    logger.info("Fetching page %s.", url)
+    json_dict = requests.get(url).json()
+    logger.debug(f"get_wishlist_ids JSON output: {json_dict}")
+    if json_dict:
+        for game_data in json_dict["response"]["items"]:
+            dict_games.append({"appid": game_data["appid"]})
     return dict_games
 
 
