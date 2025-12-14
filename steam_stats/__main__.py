@@ -1,6 +1,7 @@
 """
 steam_stats : extract steam game data from a list of steam appids.
 """
+
 import logging
 import time
 import argparse
@@ -33,7 +34,9 @@ def get_achievements_dict(s, api_key, user_id, app_id):
     if "error" in result["playerstats"].keys():
         if result["playerstats"]["error"] == "Requested app has no stats":
             return {}
-        logger.warning("Unexpected error for appid %s: %s", app_id, result["playerstats"]["error"])
+        logger.warning(
+            "Unexpected error for appid %s: %s", app_id, result["playerstats"]["error"]
+        )
         return {}
     return {
         "appid": app_id,
@@ -77,23 +80,19 @@ def get_games_batch(s, appids: list[str]) -> dict[str, dict]:
     Note: Only requests essential fields to keep URL length manageable.
     """
     request_json = {
-        'ids': [{'appid': int(appid)} for appid in appids],
-        'context': {
-            'language': 'english',
-            'country_code': 'US',
-            'steam_realm': 1
+        "ids": [{"appid": int(appid)} for appid in appids],
+        "context": {"language": "english", "country_code": "US", "steam_realm": 1},
+        "data_request": {
+            "include_release": True,
+            "include_platforms": True,
+            "include_basic_info": True,
+            "include_tag_count": 20,
+            "include_reviews": True,
         },
-        'data_request': {
-            'include_release': True,
-            'include_platforms': True,
-            'include_basic_info': True,
-            'include_tag_count': 20,
-            'include_reviews': True,
-        }
     }
 
     encoded_json_string = urllib.parse.quote(json.dumps(request_json))
-    url = f'https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json={encoded_json_string}'
+    url = f"https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json={encoded_json_string}"
 
     try:
         result = s.get(url)
@@ -102,9 +101,9 @@ def get_games_batch(s, appids: list[str]) -> dict[str, dict]:
 
         # Build a dict mapping appid -> store_item
         games_dict = {}
-        if 'response' in data and 'store_items' in data['response']:
-            for store_item in data['response']['store_items']:
-                appid = str(store_item.get('appid', ''))
+        if "response" in data and "store_items" in data["response"]:
+            for store_item in data["response"]["store_items"]:
+                appid = str(store_item.get("appid", ""))
                 if appid:
                     games_dict[appid] = store_item
 
@@ -120,30 +119,31 @@ def extract_game_data_from_store_item(store_item: dict) -> dict:
     Maps fields from the new API to the format expected by the rest of the code.
     """
     return {
-        'name': store_item.get('name', ''),
-        'appid': store_item.get('appid', ''),
-        'type': store_item.get('type', ''),
-        'required_age': store_item.get('game_rating', {}).get('required_age', ''),
-        'is_free': store_item.get('is_free', False),
-        'developers': [
-            developer.get('name', '')
-            for developer in store_item.get('basic_info', {}).get('developers', [])
+        "name": store_item.get("name", ""),
+        "appid": store_item.get("appid", ""),
+        "type": store_item.get("type", ""),
+        "required_age": store_item.get("game_rating", {}).get("required_age", ""),
+        "is_free": store_item.get("is_free", False),
+        "developers": [
+            developer.get("name", "")
+            for developer in store_item.get("basic_info", {}).get("developers", [])
         ],
-        'publishers': [
-            publisher.get('name', '')
-            for publisher in store_item.get('basic_info', {}).get('publishers', [])
+        "publishers": [
+            publisher.get("name", "")
+            for publisher in store_item.get("basic_info", {}).get("publishers", [])
         ],
-        'platforms': {
-            'windows': store_item.get('platforms', {}).get('windows', False),
-            'linux': store_item.get('platforms', {}).get('steamos_linux', False),
-            'mac': store_item.get('platforms', {}).get('mac', False),
+        "platforms": {
+            "windows": store_item.get("platforms", {}).get("windows", False),
+            "linux": store_item.get("platforms", {}).get("steamos_linux", False),
+            "mac": store_item.get("platforms", {}).get("mac", False),
         },
-        'genres': [
-            {'description': tag.get('name', '')}
-            for tag in store_item.get('tags', [])
-        ] if store_item.get('tags') else [],
-        'release_date': {
-            'date': store_item.get('release', {}).get('steam_release_date', '')
+        "genres": [
+            {"description": tag.get("name", "")} for tag in store_item.get("tags", [])
+        ]
+        if store_item.get("tags")
+        else [],
+        "release_date": {
+            "date": store_item.get("release", {}).get("steam_release_date", "")
         },
     }
 
@@ -190,7 +190,7 @@ def main():
     game_dict_list = []
 
     # Split IDs into batches for the new API
-    batches = [ids[i:i + BATCH_SIZE] for i in range(0, len(ids), BATCH_SIZE)]
+    batches = [ids[i : i + BATCH_SIZE] for i in range(0, len(ids), BATCH_SIZE)]
     logger.info("Processing %d games in %d batches", len(ids), len(batches))
 
     for batch in tqdm(batches, desc="Batches", dynamic_ncols=True):
@@ -198,12 +198,16 @@ def main():
         games_data = get_games_batch(s, batch)
 
         # Process each game in the batch
-        for game_id in tqdm(batch, desc="Games in batch", leave=False, dynamic_ncols=True):
+        for game_id in tqdm(
+            batch, desc="Games in batch", leave=False, dynamic_ncols=True
+        ):
             game_id = str(game_id)
 
             # Get game data from the batch result, or fall back to old API
             if game_id not in games_data:
-                logger.warning("Game %s not found in batch response, trying old API", game_id)
+                logger.warning(
+                    "Game %s not found in batch response, trying old API", game_id
+                )
                 data_dict = get_data_dict(s, game_id)
                 if not data_dict:
                     continue
@@ -214,23 +218,27 @@ def main():
                 data_dict = extract_game_data_from_store_item(store_item)
 
                 # Get reviews from the new API response
-                reviews_summary = store_item.get('reviews', {}).get('summary_filtered', {})
+                reviews_summary = store_item.get("reviews", {}).get(
+                    "summary_filtered", {}
+                )
 
                 # If reviews are not available in the new API, fall back to old endpoint
-                if not reviews_summary or not reviews_summary.get('review_count'):
+                if not reviews_summary or not reviews_summary.get("review_count"):
                     reviews_dict = get_reviews_dict(s, game_id)
                 else:
                     # Use reviews from the new API
                     reviews_dict = {
-                        'num_reviews': reviews_summary.get('review_count', 0),
-                        'review_score': reviews_summary.get('percent_positive', 0),
-                        'review_score_desc': reviews_summary.get('review_score_label', ''),
-                        'total_positive': reviews_summary.get('total_positive', 0),
-                        'total_negative': reviews_summary.get('total_negative', 0),
-                        'total_reviews': reviews_summary.get('review_count', 0),
+                        "num_reviews": reviews_summary.get("review_count", 0),
+                        "review_score": reviews_summary.get("percent_positive", 0),
+                        "review_score_desc": reviews_summary.get(
+                            "review_score_label", ""
+                        ),
+                        "total_positive": reviews_summary.get("total_positive", 0),
+                        "total_negative": reviews_summary.get("total_negative", 0),
+                        "total_reviews": reviews_summary.get("review_count", 0),
                     }
 
-            if not data_dict.get('name'):
+            if not data_dict.get("name"):
                 logger.warning("No name found for game %s, skipping", game_id)
                 continue
 

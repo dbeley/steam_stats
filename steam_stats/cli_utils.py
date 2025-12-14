@@ -25,7 +25,9 @@ def add_debug_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def add_user_id_argument(parser: argparse.ArgumentParser, required: bool = False) -> None:
+def add_user_id_argument(
+    parser: argparse.ArgumentParser, required: bool = False
+) -> None:
     """Add standard -u/--user_id flag to argument parser.
 
     Args:
@@ -78,7 +80,9 @@ def add_filename_argument(
         )
 
 
-def setup_logging(level: int = logging.INFO, format_string: Optional[str] = None) -> None:
+def setup_logging(
+    level: int = logging.INFO, format_string: Optional[str] = None
+) -> None:
     """Configure logging with consistent format.
 
     Args:
