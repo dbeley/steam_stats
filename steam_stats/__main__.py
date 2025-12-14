@@ -4,7 +4,6 @@ import argparse
 import datetime
 import json
 import urllib.parse
-import os
 import pandas as pd
 import requests
 from urllib3.util.retry import Retry
@@ -199,10 +198,9 @@ def main():
     if not Path(args.file).is_file():
         raise FileNotFoundError("%s is not a file. Exiting.", args.file)
 
-    # Initialize configuration
     config = SteamConfig()
     api_key = config.get_api_key()
-    user_id = os.environ.get("STEAM_USER_ID") or config.get_user_id()
+    user_id = config.get_user_id()
 
     logger.debug("Reading CSV file")
     df = pd.read_csv(args.file, sep="\t|;", engine="python")
@@ -285,6 +283,14 @@ def main():
 
             achievements_dict = get_achievements_dict(s, api_key, user_id, game_id)
 
+            # Calculate achievement percentage
+            achieved = achievements_dict.get("achieved")
+            total_achievements = achievements_dict.get("total_achievements")
+            if achieved is not None and total_achievements and total_achievements > 0:
+                achievement_percentage = round((achieved / total_achievements) * 100, 1)
+            else:
+                achievement_percentage = None
+
             game_dict = {
                 "export_date": export_time,
                 "name": data_dict["name"].strip(),
@@ -312,8 +318,9 @@ def main():
                 "total_negative": reviews_dict.get("total_negative"),
                 "total_reviews": reviews_dict.get("total_reviews"),
                 "url": f"https://store.steampowered.com/app/{game_id}",
-                "achieved_achievements": achievements_dict.get("achieved"),
-                "total_achievements": achievements_dict.get("total_achievements"),
+                "achieved_achievements": achieved,
+                "total_achievements": total_achievements,
+                "achievement_percentage": achievement_percentage,
             }
 
             if args.export_extra_data:
