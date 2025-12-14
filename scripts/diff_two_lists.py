@@ -45,9 +45,13 @@ def main():
     logger.debug("Reading files")
     if args.fieldname1 and args.fieldname2:
         print(f"Reading field {args.fieldname1} for file {args.filename1}")
-        content1 = read_field_from_file(args.filename1, args.fieldname1, args.sheetname1)
+        content1 = read_field_from_file(
+            args.filename1, args.fieldname1, args.sheetname1
+        )
         print(f"Reading field {args.fieldname2} for file {args.filename2}")
-        content2 = read_field_from_file(args.filename2, args.fieldname2, args.sheetname2)
+        content2 = read_field_from_file(
+            args.filename2, args.fieldname2, args.sheetname2
+        )
     else:
         content1 = read_from_file(args.filename1)
         content2 = read_from_file(args.filename2)
@@ -91,10 +95,7 @@ def parse_args():
         type=str,
     )
     parser.add_argument(
-        "-sn1",
-        "--sheetname1",
-        help="Sheetname for file 1 (optional)",
-        default=1
+        "-sn1", "--sheetname1", help="Sheetname for file 1 (optional)", default=1
     )
     parser.add_argument(
         "-f2",
@@ -109,10 +110,7 @@ def parse_args():
         type=str,
     )
     parser.add_argument(
-        "-sn2",
-        "--sheetname2",
-        help="Sheetname for file 2 (optional)",
-        default=1
+        "-sn2", "--sheetname2", help="Sheetname for file 2 (optional)", default=1
     )
     args = parser.parse_args()
 
