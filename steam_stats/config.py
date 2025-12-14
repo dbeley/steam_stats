@@ -1,8 +1,3 @@
-"""Configuration management for Steam Stats.
-
-This module centralizes configuration reading from config.ini files and environment variables.
-"""
-
 import os
 import configparser
 import logging

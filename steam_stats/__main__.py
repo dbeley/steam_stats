@@ -1,13 +1,10 @@
-"""
-steam_stats : extract steam game data from a list of steam appids.
-"""
-
 import logging
 import time
 import argparse
 import datetime
 import json
 import urllib.parse
+import os
 import pandas as pd
 import requests
 from urllib3.util.retry import Retry
@@ -118,33 +115,65 @@ def extract_game_data_from_store_item(store_item: dict) -> dict:
     Extract game data from the new API format (IStoreBrowseService/GetItems).
     Maps fields from the new API to the format expected by the rest of the code.
     """
+    import datetime
+
+    # Map numeric type to string (0 = game, 1 = dlc, 2 = demo, etc.)
+    type_map = {0: "game", 1: "dlc", 2: "demo", 3: "mod", 4: "video"}
+    numeric_type = store_item.get("type", 0)
+    type_str = type_map.get(numeric_type, "game")
+
+    # Convert Unix timestamp to formatted date string
+    release_timestamp = store_item.get("release", {}).get("steam_release_date", 0)
+    if (
+        release_timestamp
+        and isinstance(release_timestamp, int)
+        and release_timestamp > 0
+    ):
+        try:
+            release_date_formatted = datetime.datetime.fromtimestamp(
+                release_timestamp
+            ).strftime("%b %d, %Y")
+        except (ValueError, OSError):
+            release_date_formatted = ""
+    else:
+        release_date_formatted = ""
+
+    # Extract developers and publishers in the expected format
+    developers_list = [
+        {"name": dev.get("name", "")}
+        for dev in store_item.get("basic_info", {}).get("developers", [])
+    ]
+
+    publishers_list = [
+        {"name": pub.get("name", "")}
+        for pub in store_item.get("basic_info", {}).get("publishers", [])
+    ]
+
+    # Extract genres/tags - filter out empty names
+    tags = store_item.get("tags", [])
+    genres_list = [
+        {"description": tag.get("name", "")}
+        for tag in tags
+        if tag.get("name", "").strip()
+    ]
+
     return {
         "name": store_item.get("name", ""),
         "appid": store_item.get("appid", ""),
-        "type": store_item.get("type", ""),
-        "required_age": store_item.get("game_rating", {}).get("required_age", ""),
+        "type": type_str,
+        "required_age": store_item.get("basic_info", {})
+        .get("content_rating", {})
+        .get("required_age", 0),
         "is_free": store_item.get("is_free", False),
-        "developers": [
-            developer.get("name", "")
-            for developer in store_item.get("basic_info", {}).get("developers", [])
-        ],
-        "publishers": [
-            publisher.get("name", "")
-            for publisher in store_item.get("basic_info", {}).get("publishers", [])
-        ],
+        "developers": developers_list,
+        "publishers": publishers_list,
         "platforms": {
             "windows": store_item.get("platforms", {}).get("windows", False),
             "linux": store_item.get("platforms", {}).get("steamos_linux", False),
             "mac": store_item.get("platforms", {}).get("mac", False),
         },
-        "genres": [
-            {"description": tag.get("name", "")} for tag in store_item.get("tags", [])
-        ]
-        if store_item.get("tags")
-        else [],
-        "release_date": {
-            "date": store_item.get("release", {}).get("steam_release_date", "")
-        },
+        "genres": genres_list,
+        "release_date": {"date": release_date_formatted},
     }
 
 
@@ -173,7 +202,7 @@ def main():
     # Initialize configuration
     config = SteamConfig()
     api_key = config.get_api_key()
-    user_id = config.get_user_id(args.user_id)
+    user_id = os.environ.get("STEAM_USER_ID") or config.get_user_id()
 
     logger.debug("Reading CSV file")
     df = pd.read_csv(args.file, sep="\t|;", engine="python")
@@ -227,15 +256,27 @@ def main():
                     reviews_dict = get_reviews_dict(s, game_id)
                 else:
                     # Use reviews from the new API
+                    review_count = reviews_summary.get("review_count", 0)
+                    percent_positive = reviews_summary.get("percent_positive", 0)
+
+                    # Calculate positive/negative counts from percentage
+                    # The new API provides percent_positive instead of raw counts
+                    if review_count and percent_positive:
+                        total_positive = int((percent_positive / 100) * review_count)
+                        total_negative = review_count - total_positive
+                    else:
+                        total_positive = 0
+                        total_negative = 0
+
                     reviews_dict = {
-                        "num_reviews": reviews_summary.get("review_count", 0),
-                        "review_score": reviews_summary.get("percent_positive", 0),
+                        "num_reviews": review_count,
+                        "review_score": percent_positive,
                         "review_score_desc": reviews_summary.get(
                             "review_score_label", ""
                         ),
-                        "total_positive": reviews_summary.get("total_positive", 0),
-                        "total_negative": reviews_summary.get("total_negative", 0),
-                        "total_reviews": reviews_summary.get("review_count", 0),
+                        "total_positive": total_positive,
+                        "total_negative": total_negative,
+                        "total_reviews": review_count,
                     }
 
             if not data_dict.get("name"):
@@ -251,8 +292,12 @@ def main():
                 "type": data_dict.get("type"),
                 "required_age": data_dict.get("required_age"),
                 "is_free": data_dict.get("is_free"),
-                "developers": ", ".join(data_dict.get("developers", [])),
-                "publishers": ", ".join(data_dict.get("publishers", [])),
+                "developers": ", ".join(
+                    [dev.get("name", "") for dev in data_dict.get("developers", [])]
+                ),
+                "publishers": ", ".join(
+                    [pub.get("name", "") for pub in data_dict.get("publishers", [])]
+                ),
                 "windows": data_dict["platforms"]["windows"],
                 "linux": data_dict["platforms"]["linux"],
                 "mac": data_dict["platforms"]["mac"],
