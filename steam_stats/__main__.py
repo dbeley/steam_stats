@@ -4,12 +4,14 @@ import argparse
 import datetime
 import json
 import urllib.parse
+import csv
 import pandas as pd
 import requests
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from pathlib import Path
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from .config import SteamConfig
 from .itad import get_itad_data
 from .requests import get_steam_json
@@ -185,6 +187,107 @@ def get_reviews_dict(s, game_id):
     return reviews_dict
 
 
+def process_single_game(
+    s, game_id, games_data, api_key, user_id, export_time, export_extra_data, config
+):
+    """Process a single game and return its data dict, or None if processing fails."""
+    game_id = str(game_id)
+
+    # Get game data from the batch result, or fall back to old API
+    if game_id not in games_data:
+        logger.warning("Game %s not found in batch response, trying old API", game_id)
+        data_dict = get_data_dict(s, game_id)
+        if not data_dict:
+            return None
+        # For old API, reviews need to be fetched separately
+        reviews_dict = get_reviews_dict(s, game_id)
+    else:
+        store_item = games_data[game_id]
+        data_dict = extract_game_data_from_store_item(store_item)
+
+        # Get reviews from the new API response
+        reviews_summary = store_item.get("reviews", {}).get("summary_filtered", {})
+
+        # If reviews are not available in the new API, fall back to old endpoint
+        if not reviews_summary or not reviews_summary.get("review_count"):
+            reviews_dict = get_reviews_dict(s, game_id)
+        else:
+            # Use reviews from the new API
+            review_count = reviews_summary.get("review_count", 0)
+            percent_positive = reviews_summary.get("percent_positive", 0)
+
+            # Calculate positive/negative counts from percentage
+            # The new API provides percent_positive instead of raw counts
+            if review_count and percent_positive:
+                total_positive = int((percent_positive / 100) * review_count)
+                total_negative = review_count - total_positive
+            else:
+                total_positive = 0
+                total_negative = 0
+
+            reviews_dict = {
+                "num_reviews": review_count,
+                "review_score": percent_positive,
+                "review_score_desc": reviews_summary.get("review_score_label", ""),
+                "total_positive": total_positive,
+                "total_negative": total_negative,
+                "total_reviews": review_count,
+            }
+
+    if not data_dict.get("name"):
+        logger.warning("No name found for game %s, skipping", game_id)
+        return None
+
+    achievements_dict = get_achievements_dict(s, api_key, user_id, game_id)
+
+    # Calculate achievement percentage
+    achieved = achievements_dict.get("achieved")
+    total_achievements = achievements_dict.get("total_achievements")
+    if achieved is not None and total_achievements and total_achievements > 0:
+        achievement_percentage = round((achieved / total_achievements) * 100, 1)
+    else:
+        achievement_percentage = None
+
+    game_dict = {
+        "export_date": export_time,
+        "name": data_dict["name"].strip(),
+        "appid": game_id,
+        "type": data_dict.get("type"),
+        "required_age": data_dict.get("required_age"),
+        "is_free": data_dict.get("is_free"),
+        "developers": ", ".join(
+            [dev.get("name", "") for dev in data_dict.get("developers", [])]
+        ),
+        "publishers": ", ".join(
+            [pub.get("name", "") for pub in data_dict.get("publishers", [])]
+        ),
+        "windows": data_dict["platforms"]["windows"],
+        "linux": data_dict["platforms"]["linux"],
+        "mac": data_dict["platforms"]["mac"],
+        "genres": ", ".join([x["description"] for x in data_dict.get("genres", [])]),
+        "release_date": data_dict["release_date"]["date"],
+        "num_reviews": reviews_dict.get("num_reviews"),
+        "review_score": reviews_dict.get("review_score"),
+        "review_score_desc": reviews_dict.get("review_score_desc"),
+        "total_positive": reviews_dict.get("total_positive"),
+        "total_negative": reviews_dict.get("total_negative"),
+        "total_reviews": reviews_dict.get("total_reviews"),
+        "url": f"https://store.steampowered.com/app/{game_id}",
+        "achieved_achievements": achieved,
+        "total_achievements": total_achievements,
+        "achievement_percentage": achievement_percentage,
+    }
+
+    if export_extra_data:
+        itad_api_key = config.get_itad_api_key()
+        result_itad = get_itad_data(s, itad_api_key, game_id)
+        if result_itad:
+            game_dict = {**game_dict, **result_itad}
+
+    logger.debug("Result for game %s: %s.", game_id, game_dict)
+    return game_dict
+
+
 # Config reading is now handled by the SteamConfig class in config.py
 
 
@@ -203,7 +306,7 @@ def main():
     user_id = config.get_user_id()
 
     logger.debug("Reading CSV file")
-    df = pd.read_csv(args.file, sep="\t|;", engine="python")
+    df = pd.read_csv(args.file, sep="\t")
     logger.debug("Columns : %s", df.columns)
 
     ids = df.appid.tolist()
@@ -224,113 +327,39 @@ def main():
         # Fetch batch of games using the new API
         games_data = get_games_batch(s, batch)
 
-        # Process each game in the batch
-        for game_id in tqdm(
-            batch, desc="Games in batch", leave=False, dynamic_ncols=True
-        ):
-            game_id = str(game_id)
-
-            # Get game data from the batch result, or fall back to old API
-            if game_id not in games_data:
-                logger.warning(
-                    "Game %s not found in batch response, trying old API", game_id
-                )
-                data_dict = get_data_dict(s, game_id)
-                if not data_dict:
-                    continue
-                # For old API, reviews need to be fetched separately
-                reviews_dict = get_reviews_dict(s, game_id)
-            else:
-                store_item = games_data[game_id]
-                data_dict = extract_game_data_from_store_item(store_item)
-
-                # Get reviews from the new API response
-                reviews_summary = store_item.get("reviews", {}).get(
-                    "summary_filtered", {}
-                )
-
-                # If reviews are not available in the new API, fall back to old endpoint
-                if not reviews_summary or not reviews_summary.get("review_count"):
-                    reviews_dict = get_reviews_dict(s, game_id)
-                else:
-                    # Use reviews from the new API
-                    review_count = reviews_summary.get("review_count", 0)
-                    percent_positive = reviews_summary.get("percent_positive", 0)
-
-                    # Calculate positive/negative counts from percentage
-                    # The new API provides percent_positive instead of raw counts
-                    if review_count and percent_positive:
-                        total_positive = int((percent_positive / 100) * review_count)
-                        total_negative = review_count - total_positive
-                    else:
-                        total_positive = 0
-                        total_negative = 0
-
-                    reviews_dict = {
-                        "num_reviews": review_count,
-                        "review_score": percent_positive,
-                        "review_score_desc": reviews_summary.get(
-                            "review_score_label", ""
-                        ),
-                        "total_positive": total_positive,
-                        "total_negative": total_negative,
-                        "total_reviews": review_count,
-                    }
-
-            if not data_dict.get("name"):
-                logger.warning("No name found for game %s, skipping", game_id)
-                continue
-
-            achievements_dict = get_achievements_dict(s, api_key, user_id, game_id)
-
-            # Calculate achievement percentage
-            achieved = achievements_dict.get("achieved")
-            total_achievements = achievements_dict.get("total_achievements")
-            if achieved is not None and total_achievements and total_achievements > 0:
-                achievement_percentage = round((achieved / total_achievements) * 100, 1)
-            else:
-                achievement_percentage = None
-
-            game_dict = {
-                "export_date": export_time,
-                "name": data_dict["name"].strip(),
-                "appid": game_id,
-                "type": data_dict.get("type"),
-                "required_age": data_dict.get("required_age"),
-                "is_free": data_dict.get("is_free"),
-                "developers": ", ".join(
-                    [dev.get("name", "") for dev in data_dict.get("developers", [])]
-                ),
-                "publishers": ", ".join(
-                    [pub.get("name", "") for pub in data_dict.get("publishers", [])]
-                ),
-                "windows": data_dict["platforms"]["windows"],
-                "linux": data_dict["platforms"]["linux"],
-                "mac": data_dict["platforms"]["mac"],
-                "genres": ", ".join(
-                    [x["description"] for x in data_dict.get("genres", [])]
-                ),
-                "release_date": data_dict["release_date"]["date"],
-                "num_reviews": reviews_dict.get("num_reviews"),
-                "review_score": reviews_dict.get("review_score"),
-                "review_score_desc": reviews_dict.get("review_score_desc"),
-                "total_positive": reviews_dict.get("total_positive"),
-                "total_negative": reviews_dict.get("total_negative"),
-                "total_reviews": reviews_dict.get("total_reviews"),
-                "url": f"https://store.steampowered.com/app/{game_id}",
-                "achieved_achievements": achieved,
-                "total_achievements": total_achievements,
-                "achievement_percentage": achievement_percentage,
+        # Process each game in the batch using ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            # Submit all tasks
+            future_to_game = {
+                executor.submit(
+                    process_single_game,
+                    s,
+                    game_id,
+                    games_data,
+                    api_key,
+                    user_id,
+                    export_time,
+                    args.export_extra_data,
+                    config,
+                ): game_id
+                for game_id in batch
             }
 
-            if args.export_extra_data:
-                itad_api_key = config.get_itad_api_key()
-                result_itad = get_itad_data(s, itad_api_key, game_id)
-                if result_itad:
-                    game_dict = {**game_dict, **result_itad}
-
-            logger.debug("Result for game %s: %s.", game_id, game_dict)
-            game_dict_list.append(game_dict)
+            # Collect results as they complete with progress bar
+            for future in tqdm(
+                as_completed(future_to_game),
+                total=len(batch),
+                desc="Games in batch",
+                leave=False,
+                dynamic_ncols=True,
+            ):
+                try:
+                    game_dict = future.result()
+                    if game_dict:
+                        game_dict_list.append(game_dict)
+                except Exception as e:
+                    game_id = future_to_game[future]
+                    logger.error("Error processing game %s: %s", game_id, e)
 
     df = pd.DataFrame(game_dict_list)
     df = df.astype(
@@ -349,7 +378,7 @@ def main():
         else f"Exports/game_info_{export_date}.csv"
     )
     logger.debug("Writing complete export %s.", filename)
-    df.to_csv(filename, sep="\t", index=False)
+    df.to_csv(filename, sep="\t", index=False, quoting=csv.QUOTE_MINIMAL)
     logger.info("Runtime : %.2f seconds" % (time.time() - START_TIME))
 
 
@@ -374,6 +403,12 @@ def parse_args():
         help="Enable extra data fetching (ITAD)",
         dest="export_extra_data",
         action="store_true",
+    )
+    parser.add_argument(
+        "--workers",
+        help="Number of concurrent workers for processing games (default: 10)",
+        type=int,
+        default=10,
     )
     parser.set_defaults(export_extra_data=False)
     args = parser.parse_args()

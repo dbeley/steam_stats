@@ -3,6 +3,7 @@ import logging
 import time
 import argparse
 import configparser
+import csv
 import requests
 import pandas as pd
 from pathlib import Path
@@ -87,7 +88,7 @@ def main():
     df = pd.merge(df, df_recent, how="left", on=["appid"])
     df["playtime_2weeks"] = df["playtime_2weeks"].fillna(0.0).astype(int)
     filename = args.filename if args.filename else f"Exports/playtime_{user_id}.csv"
-    df.to_csv(filename, sep="\t", index=False)
+    df.to_csv(filename, sep="\t", index=False, quoting=csv.QUOTE_MINIMAL)
     logger.info(f"Output file: {filename}.")
 
     logger.info("Runtime : %.2f seconds." % (time.time() - temps_debut))

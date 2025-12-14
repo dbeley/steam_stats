@@ -21,7 +21,7 @@ def read_field_from_file(filename: str, fieldname: str, sheet_name: str | int):
     if not Path(filename).is_file():
         raise FileNotFoundError("%s is not a valid file.", filename)
     if Path(filename).suffix in [".csv", ".txt"]:
-        df = pd.read_csv(filename, sep="\t|;", engine="python")
+        df = pd.read_csv(filename, sep="\t")
     elif Path(filename).suffix in [
         ".xls",
         ".xlsx",

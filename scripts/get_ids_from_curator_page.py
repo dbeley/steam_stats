@@ -1,6 +1,7 @@
 import logging
 import time
 import argparse
+import csv
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -49,7 +50,7 @@ def main():
 
     df = pd.DataFrame(dict_games)
     filename = f"Exports/ids_curators_{start_time}.csv"
-    df.to_csv(filename, sep="\t", index=False)
+    df.to_csv(filename, sep="\t", index=False, quoting=csv.QUOTE_MINIMAL)
     logger.info(f"Output file: {filename}.")
 
     logger.info("Runtime : %.2f seconds." % (time.time() - start_time))
