@@ -32,7 +32,7 @@ def get_playtime_recent(api_key, user_id):
 def get_playtime(api_key, user_id):
     url = (
         "http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/"
-        f"?key={api_key}&steamid={user_id}&format=json"
+        f"?key={api_key}&steamid={user_id}&format=json&include_played_free_games=1"
     )
     json_dict = requests.get(url).json()
     games_list = []

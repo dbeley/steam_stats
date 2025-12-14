@@ -23,7 +23,7 @@ def get_all_ids(api_key):
 
 
 def get_owned_ids(api_key, user_id):
-    url = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={api_key}&steamid={user_id}&format=json"
+    url = f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={api_key}&steamid={user_id}&format=json&include_played_free_games=1"
     json_dict = requests.get(url).json()
     logger.debug(f"get_owned_ids JSON output: {json_dict}")
     dict_games = []
