@@ -1,11 +1,9 @@
 """
 steam_stats : extract steam game data from a list of steam appids.
 """
-import os
 import logging
 import time
 import argparse
-import configparser
 import datetime
 import json
 import urllib.parse
@@ -15,6 +13,7 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from pathlib import Path
 from tqdm import tqdm
+from .config import SteamConfig
 from .itad import get_itad_data
 from .requests import get_steam_json
 
@@ -22,7 +21,6 @@ logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 START_TIME = time.time()
-DELAY = 60
 BATCH_SIZE = 200  # Optimized request allows 200 games per batch
 
 
@@ -35,7 +33,8 @@ def get_achievements_dict(s, api_key, user_id, app_id):
     if "error" in result["playerstats"].keys():
         if result["playerstats"]["error"] == "Requested app has no stats":
             return {}
-        breakpoint()
+        logger.warning("Unexpected error for appid %s: %s", app_id, result["playerstats"]["error"])
+        return {}
     return {
         "appid": app_id,
         "achieved": sum(
@@ -158,38 +157,7 @@ def get_reviews_dict(s, game_id):
     return reviews_dict
 
 
-def read_config():
-    logger.debug("Reading config file")
-    config = configparser.ConfigParser()
-    config.read("config.ini")
-    try:
-        api_key = os.environ.get("STEAM_API_KEY")
-        if not api_key:
-            api_key = config["steam"]["api_key"]
-    except Exception:
-        raise ValueError("No api_key found. Check your config file.")
-
-    try:
-        user_id = os.environ.get("STEAM_USER_ID")
-        if not user_id:
-            user_id = config["steam"]["user_id"]
-    except Exception:
-        raise ValueError(
-            "No user specified. Specify a user_id directive in your config file or use the -u/--user_id flag"
-        )
-    return api_key, user_id
-
-
-def read_itad_config():
-    config = configparser.ConfigParser()
-    config.read("config.ini")
-    try:
-        itad_api_key = os.environ.get("ITAD_API_KEY")
-        if not itad_api_key:
-            itad_api_key = config["itad"]["api_key"]
-    except Exception:
-        raise ValueError("No itad api_key found. Check your config file.")
-    return itad_api_key
+# Config reading is now handled by the SteamConfig class in config.py
 
 
 def main():
@@ -202,7 +170,10 @@ def main():
     if not Path(args.file).is_file():
         raise FileNotFoundError("%s is not a file. Exiting.", args.file)
 
-    api_key, user_id = read_config()
+    # Initialize configuration
+    config = SteamConfig()
+    api_key = config.get_api_key()
+    user_id = config.get_user_id(args.user_id)
 
     logger.debug("Reading CSV file")
     df = pd.read_csv(args.file, sep="\t|;", engine="python")
@@ -293,7 +264,7 @@ def main():
             }
 
             if args.export_extra_data:
-                itad_api_key = read_itad_config()
+                itad_api_key = config.get_itad_api_key()
                 result_itad = get_itad_data(s, itad_api_key, game_id)
                 if result_itad:
                     game_dict = {**game_dict, **result_itad}
