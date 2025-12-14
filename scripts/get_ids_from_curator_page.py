@@ -32,9 +32,9 @@ def get_curator_ids(soup):
         try:
             link = item.find("a")["href"]
             list_items.append({"appid": get_id_from_link(link)})
-        except Exception:
-            logger.warning("Couldn't extract")
-            breakpoint()
+        except Exception as e:
+            logger.warning("Couldn't extract game ID from curator item: %s", e)
+            continue
     return list_items
 
 
