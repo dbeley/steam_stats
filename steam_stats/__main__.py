@@ -5,6 +5,7 @@ import datetime
 import json
 import urllib.parse
 import csv
+from typing import Any
 import pandas as pd
 import requests
 from urllib3.util.retry import Retry
@@ -52,7 +53,7 @@ def get_achievements_dict(s, api_key, user_id, app_id):
     }
 
 
-def get_data_dict(s, game_id: str) -> dict[str, str]:
+def get_data_dict(s, game_id: str) -> dict[str, Any]:
     """Legacy function for single game fetching. Replaced by get_games_batch."""
     url_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
     result = get_steam_json(s, url_game, game_id)

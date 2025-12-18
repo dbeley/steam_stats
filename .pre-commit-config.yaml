@@ -19,19 +19,24 @@ repos:
     - id: debug-statements
     - id: mixed-line-ending
 
-# Ruff - Fast Python linter and formatter (replaces black, flake8, isort)
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.14.9
+- repo: local
   hooks:
-    # Run the linter
     - id: ruff
-      args: [--fix]
-    # Run the formatter
+      name: ruff (system)
+      entry: ruff
+      language: system
+      types_or: [python, pyi]
+      args: ["check", "--fix"]
     - id: ruff-format
-
-- repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.19.0
-  hooks:
-    - id: mypy
-      additional_dependencies: [types-requests]
-      args: [--ignore-missing-imports, --no-strict-optional]
+      name: ruff-format (system)
+      entry: ruff
+      language: system
+      types_or: [python, pyi]
+      args: [format]
+    - id: ty
+      name: ty
+      entry: ty check
+      language: python
+      pass_filenames: false
+      types_or: [python, pyi]
+      additional_dependencies: ["setuptools"]
