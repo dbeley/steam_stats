@@ -15,7 +15,7 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .config import SteamConfig
 from .itad import get_itad_data
-from .requests import get_steam_json
+from .requests import get_steam_json, DEFAULT_TIMEOUT
 
 logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -30,26 +30,28 @@ def get_achievements_dict(s, api_key, user_id, app_id):
         f"?appid={app_id}&key={api_key}&steamid={user_id}"
     )
     result = get_steam_json(s, url_achievements, app_id)
-    if "error" in result["playerstats"].keys():
-        if result["playerstats"]["error"] == "Requested app has no stats":
-            return {}
-        logger.warning(
-            "Unexpected error for appid %s: %s", app_id, result["playerstats"]["error"]
-        )
+    playerstats = result.get("playerstats")
+    if not playerstats:
+        logger.warning("No playerstats returned for appid %s", app_id)
         return {}
+
+    error = playerstats.get("error")
+    if error:
+        if error == "Requested app has no stats":
+            return {}
+        logger.warning("Unexpected error for appid %s: %s", app_id, error)
+        return {}
+
+    achievements = playerstats.get("achievements")
+    if achievements is None:
+        return {}
+
     return {
         "appid": app_id,
         "achieved": sum(
-            [
-                achievement["achieved"] == 1
-                for achievement in result["playerstats"]["achievements"]
-            ]
-        )
-        if "achievements" in result["playerstats"].keys()
-        else None,
-        "total_achievements": len(result["playerstats"]["achievements"])
-        if "achievements" in result["playerstats"].keys()
-        else None,
+            1 for achievement in achievements if achievement.get("achieved") == 1
+        ),
+        "total_achievements": len(achievements),
     }
 
 
@@ -57,10 +59,14 @@ def get_data_dict(s, game_id: str) -> dict[str, Any]:
     """Legacy function for single game fetching. Replaced by get_games_batch."""
     url_game = f"http://store.steampowered.com/api/appdetails?appids={game_id}"
     result = get_steam_json(s, url_game, game_id)
-    game_result = result[str(game_id)]
+    game_result = result.get(str(game_id))
+    if not game_result:
+        logger.warning("No response data for game %s", game_id)
+        return {}
+
     if success := game_result.get("success"):
         logger.debug("ID %s - success : %s", game_id, success)
-        data_dict = game_result["data"]
+        data_dict = game_result.get("data", {})
         return data_dict
     else:
         logger.warning(
@@ -94,7 +100,7 @@ def get_games_batch(s, appids: list[str]) -> dict[str, dict]:
     url = f"https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json={encoded_json_string}"
 
     try:
-        result = s.get(url)
+        result = s.get(url, timeout=DEFAULT_TIMEOUT)
         result.raise_for_status()
         data = result.json()
 
@@ -107,8 +113,14 @@ def get_games_batch(s, appids: list[str]) -> dict[str, dict]:
                     games_dict[appid] = store_item
 
         return games_dict
+    except requests.exceptions.JSONDecodeError as e:
+        logger.error("Invalid JSON in batch response: %s", e)
+        return {}
+    except requests.exceptions.RequestException as e:
+        logger.error("HTTP error fetching batch of games: %s", e)
+        return {}
     except Exception as e:
-        logger.error("Error fetching batch of games: %s", e)
+        logger.error("Unexpected error fetching batch of games: %s", e)
         return {}
 
 
@@ -184,8 +196,11 @@ def get_reviews_dict(s, game_id):
         f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
     )
     result = get_steam_json(s, url_reviews, game_id)
-    reviews_dict = result["query_summary"]
-    return reviews_dict
+    query_summary = result.get("query_summary")
+    if not query_summary:
+        logger.warning("No review summary returned for game %s", game_id)
+        return {}
+    return query_summary
 
 
 def process_single_game(
@@ -262,11 +277,11 @@ def process_single_game(
         "publishers": ", ".join(
             [pub.get("name", "") for pub in data_dict.get("publishers", [])]
         ),
-        "windows": data_dict["platforms"]["windows"],
-        "linux": data_dict["platforms"]["linux"],
-        "mac": data_dict["platforms"]["mac"],
+        "windows": data_dict.get("platforms", {}).get("windows"),
+        "linux": data_dict.get("platforms", {}).get("linux"),
+        "mac": data_dict.get("platforms", {}).get("mac"),
         "genres": ", ".join([x["description"] for x in data_dict.get("genres", [])]),
-        "release_date": data_dict["release_date"]["date"],
+        "release_date": data_dict.get("release_date", {}).get("date"),
         "num_reviews": reviews_dict.get("num_reviews"),
         "review_score": reviews_dict.get("review_score"),
         "review_score_desc": reviews_dict.get("review_score_desc"),
@@ -289,7 +304,23 @@ def process_single_game(
     return game_dict
 
 
-# Config reading is now handled by the SteamConfig class in config.py
+def create_session():
+    """Create a requests session with retry configuration and connection pooling."""
+    s = requests.Session()
+    retries = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
+    )
+    adapter = HTTPAdapter(
+        max_retries=retries,
+        pool_connections=20,
+        pool_maxsize=20,
+    )
+    s.mount("http://", adapter)
+    s.mount("https://", adapter)
+    return s
 
 
 def main():
@@ -300,7 +331,7 @@ def main():
     if not args.file:
         raise ValueError("-f/--file argument not filled. Exiting.")
     if not Path(args.file).is_file():
-        raise FileNotFoundError("%s is not a file. Exiting.", args.file)
+        raise FileNotFoundError(f"{args.file} is not a file. Exiting.")
 
     config = SteamConfig()
     api_key = config.get_api_key()
@@ -311,12 +342,17 @@ def main():
     logger.debug("Columns : %s", df.columns)
 
     ids = df.appid.tolist()
+
+    # Deduplicate if the flag is set
+    if args.deduplicate:
+        before = len(ids)
+        ids = list(dict.fromkeys(ids))  # preserves order while deduplicating
+        after = len(ids)
+        logger.info("Deduplicated: %d -> %d apps", before, after)
+
     Path("Exports").mkdir(parents=True, exist_ok=True)
 
-    s = requests.Session()
-    retries = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
-    s.mount("http://", HTTPAdapter(max_retries=retries))
-    s.mount("https://", HTTPAdapter(max_retries=retries))
+    s = create_session()
 
     game_dict_list = []
 
@@ -324,13 +360,15 @@ def main():
     batches = [ids[i : i + BATCH_SIZE] for i in range(0, len(ids), BATCH_SIZE)]
     logger.info("Processing %d games in %d batches", len(ids), len(batches))
 
-    for batch in tqdm(batches, desc="Batches", dynamic_ncols=True):
-        # Fetch batch of games using the new API
-        games_data = get_games_batch(s, batch)
+    # Create a single ThreadPoolExecutor for all batches
+    rate_limit_count = 0
 
-        # Process each game in the batch using ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=args.workers) as executor:
-            # Submit all tasks
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        for batch in tqdm(batches, desc="Batches", dynamic_ncols=True):
+            # Fetch batch of games using the new API
+            games_data = get_games_batch(s, batch)
+
+            # Submit all tasks for this batch
             future_to_game = {
                 executor.submit(
                     process_single_game,
@@ -362,6 +400,12 @@ def main():
                     game_id = future_to_game[future]
                     logger.error("Error processing game %s: %s", game_id, e)
 
+        if rate_limit_count:
+            logger.info("Rate-limited %d times during this run", rate_limit_count)
+
+        # Free the executor before doing I/O
+        # (exiting the with block does this)
+
     df = pd.DataFrame(game_dict_list)
     df = df.astype(
         {
@@ -373,14 +417,25 @@ def main():
         }
     )
 
-    filename = (
+    # Export filename — handle different formats
+    base_filename = (
         args.export_filename
         if args.export_filename
-        else f"Exports/game_info_{export_date}.csv"
+        else f"Exports/game_info_{export_date}"
     )
-    logger.debug("Writing complete export %s.", filename)
-    df.to_csv(filename, sep="\t", index=False, quoting=csv.QUOTE_MINIMAL)
-    logger.info("Runtime : %.2f seconds" % (time.time() - START_TIME))
+
+    if args.export_json:
+        json_filename = f"{base_filename}.json"
+        logger.debug("Writing JSON export %s.", json_filename)
+        df.to_json(json_filename, orient="records", indent=2)
+        logger.info("JSON export written to %s", json_filename)
+
+    csv_filename = f"{base_filename}.csv"
+    logger.debug("Writing CSV export %s.", csv_filename)
+    df.to_csv(csv_filename, sep="\t", index=False, quoting=csv.QUOTE_MINIMAL)
+    logger.info("CSV export written to %s", csv_filename)
+
+    logger.info("Runtime : %.2f seconds", time.time() - START_TIME)
 
 
 def parse_args():
@@ -411,7 +466,17 @@ def parse_args():
         type=int,
         default=10,
     )
-    parser.set_defaults(export_extra_data=False)
+    parser.add_argument(
+        "--deduplicate",
+        help="Remove duplicate appids from the input list before processing",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--export_json",
+        help="Also export results as JSON (in addition to CSV)",
+        action="store_true",
+    )
+    parser.set_defaults(export_extra_data=False, deduplicate=False, export_json=False)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.loglevel)
