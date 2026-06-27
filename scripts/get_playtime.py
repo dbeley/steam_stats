@@ -1,3 +1,4 @@
+import sys
 import logging
 import time
 import argparse
@@ -8,8 +9,12 @@ from pathlib import Path
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-from steam_stats.config import SteamConfig
-from steam_stats.requests import DEFAULT_TIMEOUT
+# Allow running from the scripts/ directory directly
+_script_dir = Path(__file__).resolve().parent
+sys.path.insert(0, str(_script_dir.parent))
+
+from steam_stats.config import SteamConfig  # noqa: E402
+from steam_stats.requests import DEFAULT_TIMEOUT  # noqa: E402
 
 logger = logging.getLogger()
 START_TIME = time.time()
