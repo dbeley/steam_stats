@@ -27,8 +27,11 @@ def safe_json_response(response: requests.Response) -> dict | None:
 def get_steam_json(s, url, appid, timeout=DEFAULT_TIMEOUT):
     """Fetch JSON from a Steam API endpoint with rate-limit handling.
 
-    Retries on 429 (rate-limited) with exponential backoff, and treats any
-    non-2xx response as an unrecoverable error for that appid.
+    - 429 (rate-limited): retries with exponential backoff (up to 10 attempts)
+    - 5xx (server errors): retries up to 10 attempts, then returns error dict
+    - 4xx (client errors, excl 429): tries to parse JSON body — many Steam
+      endpoints return useful error payloads (e.g. achievements "no stats")
+    - 200: returns parsed JSON normally
     """
     sleep_time = 10
     max_attempts = 10
@@ -80,14 +83,24 @@ def get_steam_json(s, url, appid, timeout=DEFAULT_TIMEOUT):
                 str(appid): {"success": False, "error": f"HTTP {result.status_code}"}
             }
 
-        if result.status_code != 200:
-            logger.warning(
-                "Unexpected status %s for %s, skipping.",
+        # 4xx (except 429 handled above): try to parse the JSON body — many
+        # Steam endpoints return useful error info (e.g. achievements "no stats")
+        # in the response body even on 4xx.
+        if 400 <= result.status_code < 500:
+            logger.debug(
+                "Status %s for %s — body may contain error info.",
                 result.status_code,
                 url,
             )
+            if result.text:
+                json_data = safe_json_response(result)
+                if json_data is not None:
+                    return json_data
             return {
-                str(appid): {"success": False, "error": f"HTTP {result.status_code}"}
+                str(appid): {
+                    "success": False,
+                    "error": f"HTTP {result.status_code}",
+                }
             }
 
         break
