@@ -2,15 +2,17 @@ import os
 import configparser
 import logging
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
 class SteamConfig:
-    def __init__(self, config_path: str = "config.ini"):
+    def __init__(self, config_path: str | None = None):
+        # Allow override via env var, then parameter, then default
+        if config_path is None:
+            config_path = os.environ.get("STEAM_CONFIG_PATH", "config.ini")
         self.config_path = config_path
-        self._config: Optional[configparser.ConfigParser] = None
+        self._config: configparser.ConfigParser | None = None
 
     def _load_config(self) -> configparser.ConfigParser:
         if self._config is None:
@@ -40,7 +42,7 @@ class SteamConfig:
                 "or add api_key in [steam] section of config.ini"
             )
 
-    def get_user_id(self, override: Optional[str] = None) -> str:
+    def get_user_id(self, override: str | None = None) -> str:
         if override:
             logger.debug("Using Steam user ID from command line argument")
             return override

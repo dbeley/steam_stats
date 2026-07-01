@@ -3,6 +3,9 @@ from .requests import get_json
 
 logger = logging.getLogger(__name__)
 
+ITAD_REGION = "eu1"
+ITAD_COUNTRY = "FR"
+
 
 def get_itad_plain(s, api_key, appid):
     url = (
@@ -11,97 +14,102 @@ def get_itad_plain(s, api_key, appid):
         f"&shop=steam&game_id=app%2F{appid}&url=&title=&optional="
     )
     result = get_json(s, url)
-    logger.debug(f"{url}: {result}")
-    if result:
-        if isinstance(result["data"], dict):
-            if "plain" in result["data"]:
-                return result["data"]["plain"]
+    if not result:
+        logger.debug("No result for ITAD plain lookup (appid %s)", appid)
+        return None
+
+    logger.debug("ITAD plain result for %s: %s", appid, result)
+    data = result.get("data")
+    if isinstance(data, dict) and "plain" in data:
+        return data["plain"]
+
+    logger.debug("No ITAD plain found for appid %s", appid)
     return None
 
 
-def get_itad_historical_low(s, api_key, plain, region, country):
+def get_itad_historical_low(
+    s, api_key, plain, region=ITAD_REGION, country=ITAD_COUNTRY
+):
     url = (
         "https://api.isthereanydeal.com/v01/game/lowest/"
         f"?key={api_key}&plains={plain}&region={region}&country={country}"
     )
     result = get_json(s, url)
-    logger.debug(f"{url}: {result}")
-    if result and plain in result["data"]:
-        return {
-            "historical_low_price": result["data"][plain]["price"]
-            if "price" in result["data"][plain]
-            else None,
-            "historical_low_currency": result[".meta"]["currency"]
-            if "currency" in result["data"][plain]
-            else None,
-            "historical_low_shop": result["data"][plain]["shop"]["name"]
-            if "shop" in result["data"][plain]
-            else None,
-        }
-    else:
+    if not result:
         return None
 
+    game_data = result.get("data", {}).get(plain)
+    if not game_data:
+        return None
 
-def get_itad_current_price(s, api_key, appid, plain, region, country):
+    return {
+        "historical_low_price": game_data.get("price"),
+        "historical_low_currency": result.get(".meta", {}).get("currency"),
+        "historical_low_shop": game_data.get("shop", {}).get("name"),
+    }
+
+
+def get_itad_current_price(
+    s, api_key, appid, plain, region=ITAD_REGION, country=ITAD_COUNTRY
+):
     url = (
         "https://api.isthereanydeal.com/v01/game/prices/"
         f"?key={api_key}&plains={plain}&region={region}&country={country}"
         "&shops=steam&added=0"
     )
     result = get_json(s, url)
-    # for some reasons there are sometimes several entries for one game. Get the one with the correct Steam URL.
-    correct_result = None
-    for x in result["data"][plain]["list"]:
-        if str(appid) in x["url"]:
-            correct_result = x
-    logger.debug(f"{url}: {correct_result}")
-    if correct_result:
-        return {
-            "current_price_price": correct_result["price_new"]
-            if "price_new" in correct_result
-            else None,
-            "current_price_currency": result[".meta"]["currency"]
-            if ".meta" in correct_result
-            else None,
-            "current_price_shop": correct_result["shop"]["name"]
-            if "shop" in correct_result
-            else None,
-        }
-    else:
+    if not result:
         return None
+
+    plain_data = result.get("data", {}).get(plain, {})
+    prices_list = plain_data.get("list", [])
+    if not prices_list:
+        return None
+
+    # Sometimes there are several entries for one game. Get the one with the
+    # correct Steam URL.
+    correct_result = None
+    for x in prices_list:
+        if str(appid) in x.get("url", ""):
+            correct_result = x
+            break
+
+    if not correct_result:
+        logger.debug(
+            "No Steam price entry found for appid %s (plain %s), using first entry",
+            appid,
+            plain,
+        )
+        correct_result = prices_list[0]
+
+    logger.debug("ITAD price for %s: %s", appid, correct_result)
+    return {
+        "current_price_price": correct_result.get("price_new"),
+        "current_price_currency": result.get(".meta", {}).get("currency"),
+        "current_price_shop": correct_result.get("shop", {}).get("name"),
+    }
 
 
 def get_itad_data(s, api_key, appid):
-    # plain is the internal itad id for a game
+    """Fetch ITAD price data for a single game.
+
+    Returns a dict with price fields or None on failure.
+    """
     plain = get_itad_plain(s, api_key, appid)
-    if plain:
-        historical_low = get_itad_historical_low(s, api_key, plain, "eu1", "FR")
-        current_price = get_itad_current_price(s, api_key, appid, plain, "eu1", "FR")
-    else:
-        historical_low = None
-        current_price = None
-    if plain and historical_low and current_price:
-        return {
-            "appid": appid,
-            "plain": plain,
-            "historical_low_price": historical_low["historical_low_price"]
-            if "historical_low_price" in historical_low
-            else None,
-            "historical_low_currency": historical_low["historical_low_currency"]
-            if "historical_low_currency" in historical_low
-            else None,
-            "historical_low_shop": historical_low["historical_low_shop"]
-            if "historical_low_shop" in historical_low
-            else None,
-            "current_price_price": current_price["current_price_price"]
-            if "current_price_price" in current_price
-            else None,
-            "current_price_currency": current_price["current_price_currency"]
-            if "current_price_currency" in current_price
-            else None,
-            "current_price_shop": current_price["current_price_shop"]
-            if "current_price_shop" in current_price
-            else None,
-        }
-    else:
+    if not plain:
+        logger.debug("No ITAD plain for appid %s, skipping price data", appid)
         return None
+
+    historical_low = get_itad_historical_low(s, api_key, plain)
+    current_price = get_itad_current_price(s, api_key, appid, plain)
+
+    if not historical_low and not current_price:
+        logger.debug("No ITAD price data for appid %s", appid)
+        return None
+
+    result = {"appid": appid, "plain": plain}
+    if historical_low:
+        result.update(historical_low)
+    if current_price:
+        result.update(current_price)
+    return result
