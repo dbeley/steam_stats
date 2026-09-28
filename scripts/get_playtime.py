@@ -1,38 +1,21 @@
-import sys
-import logging
-import time
 import argparse
 import csv
-import requests
-import pandas as pd
+import logging
+import sys
+import time
 from pathlib import Path
-from urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
+
+import pandas as pd
 
 # Allow running from the scripts/ directory directly
 _script_dir = Path(__file__).resolve().parent
 sys.path.insert(0, str(_script_dir.parent))
 
 from steam_stats.config import SteamConfig  # noqa: E402
-from steam_stats.requests import DEFAULT_TIMEOUT  # noqa: E402
+from steam_stats.requests import DEFAULT_TIMEOUT, create_session  # noqa: E402
 
 logger = logging.getLogger()
 START_TIME = time.time()
-
-
-def create_session():
-    """Create a requests session with retry configuration."""
-    s = requests.Session()
-    retries = Retry(
-        total=5,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET"],
-    )
-    adapter = HTTPAdapter(max_retries=retries)
-    s.mount("http://", adapter)
-    s.mount("https://", adapter)
-    return s
 
 
 def get_playtime_recent(api_key, user_id):
@@ -86,6 +69,22 @@ def get_playtime(api_key, user_id):
     ]
 
 
+def merge_recent_playtime(
+    df: pd.DataFrame, dict_games_recent: list[dict]
+) -> pd.DataFrame:
+    """Left-join recent playtime onto the full playtime frame.
+
+    When the user has no recently-played games the recent frame has no columns
+    to merge on, so a zeroed column is added instead.
+    """
+    if dict_games_recent:
+        df = pd.merge(df, pd.DataFrame(dict_games_recent), how="left", on=["appid"])
+    else:
+        df["playtime_2weeks"] = 0
+    df["playtime_2weeks"] = df["playtime_2weeks"].fillna(0.0).astype(int)
+    return df
+
+
 def main():
     args = parse_args()
 
@@ -102,10 +101,7 @@ def main():
 
     dict_games_recent = get_playtime_recent(api_key, user_id)
 
-    df = pd.DataFrame(dict_games)
-    df_recent = pd.DataFrame(dict_games_recent)
-    df = pd.merge(df, df_recent, how="left", on=["appid"])
-    df["playtime_2weeks"] = df["playtime_2weeks"].fillna(0.0).astype(int)
+    df = merge_recent_playtime(pd.DataFrame(dict_games), dict_games_recent)
     filename = args.filename if args.filename else f"Exports/playtime_{user_id}.csv"
     df.to_csv(filename, sep="\t", index=False, quoting=csv.QUOTE_MINIMAL)
     logger.info("Output file: %s.", filename)
@@ -128,7 +124,10 @@ def parse_args():
     parser.add_argument(
         "-u",
         "--user_id",
-        help="User id to extract the games data from (steamID64). Default: user in config.ini",
+        help=(
+            "User id to extract the games data from (steamID64). "
+            "Default: user in config.ini"
+        ),
         type=str,
     )
     parser.add_argument(

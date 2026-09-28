@@ -54,17 +54,18 @@ python setup.py install --user
 
 You can use the `get_ids.py` script to export a list of appids (see below).
 
-`steam_stats` expects a readable csv file with a column `appid` containing Steam appids as input.
+`steam_stats` expects a readable, tab-separated file with a column `appid`
+containing Steam appids as input.
 
-Given a steam_games.csv file containing :
+Given a `steam_games.csv` file containing (columns separated by tabs) :
 
 ```
-name;appid
-Dead Cells;152266
-Wizard of Legend;445980
-Hollow Knight;367520
-Lethis Path of Progress;359230
-Banished;242920
+name	appid
+Dead Cells	152266
+Wizard of Legend	445980
+Hollow Knight	367520
+Lethis Path of Progress	359230
+Banished	242920
 ```
 
 You can call steam_stats with the command :
@@ -93,6 +94,16 @@ optional arguments:
   --deduplicate                 Remove duplicate appids before processing
   --export_json                 Also export results as JSON (in addition to CSV)
 ```
+
+## Data notes
+
+- `review_score` is exported as a percentage of positive reviews (`0`–`100`),
+  regardless of which Steam endpoint provided the data. `total_positive` /
+  `total_negative` are exact when fetched from the reviews endpoint and
+  estimated from `percent_positive` when the store API provides only a
+  percentage.
+- `genres` is derived from Steam community tags, not the legacy store genres.
+- Release dates are formatted in UTC.
 
 ## Helper scripts
 
@@ -148,3 +159,15 @@ python diff_two_lists.py -f1 file1.csv -fn1 appid -f2 file2.csv -fn2 appid
 | `STEAM_USER_ID` | Steam ID64 (overrides config.ini) |
 | `STEAM_CONFIG_PATH` | Path to alternative config file |
 | `ITAD_API_KEY` | IsThereAnyDeal API key (overrides config.ini) |
+
+## Development
+
+```bash
+python -m pytest      # run the test suite
+ruff check .          # lint
+ruff format .         # format
+ty check              # type check
+```
+
+Continuous integration (`.github/workflows/ci.yml`) runs lint, format check,
+type check and tests on Python 3.10 and 3.12.

@@ -9,7 +9,7 @@ WorkingDirectory=%h/Documents/steam_stats
 # With virtualenv
 # ExecStart=%h/Documents/steam_stats/venv/bin/python %h/Documents/steam_stats/venv/bin/steam_stats -f steam_games.csv
 # With pipenv
-ExecStart=%h/Documents/steam_stats/.venv/bin/steam_stats --file steam_games.csv --separate_export
+ExecStart=%h/Documents/steam_stats/.venv/bin/steam_stats --file steam_games.csv
 
 [Install]
 WantedBy=multi-user.target

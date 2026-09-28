@@ -1,38 +1,25 @@
-import sys
-import logging
-import time
 import argparse
 import csv
-import requests
-import pandas as pd
+import logging
+import sys
+import time
 from pathlib import Path
-from urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
+
+import pandas as pd
 
 # Allow running from the scripts/ directory directly
 _script_dir = Path(__file__).resolve().parent
 sys.path.insert(0, str(_script_dir.parent))
 
 from steam_stats.config import SteamConfig  # noqa: E402
-from steam_stats.requests import DEFAULT_TIMEOUT  # noqa: E402
+from steam_stats.requests import (  # noqa: E402
+    DEFAULT_TIMEOUT,
+    create_session,
+    redact_url,
+)
 
 logger = logging.getLogger()
 START_TIME = time.time()
-
-
-def create_session():
-    """Create a requests session with retry configuration."""
-    s = requests.Session()
-    retries = Retry(
-        total=5,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET"],
-    )
-    adapter = HTTPAdapter(max_retries=retries)
-    s.mount("http://", adapter)
-    s.mount("https://", adapter)
-    return s
 
 
 def get_all_ids(api_key):
@@ -74,7 +61,7 @@ def get_wishlist_ids(user_id):
     url = f"https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={user_id}"
     s = create_session()
     try:
-        logger.info("Fetching wishlist: %s", url)
+        logger.info("Fetching wishlist: %s", redact_url(url))
         response = s.get(url, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         json_dict = response.json()
@@ -139,13 +126,18 @@ def parse_args():
     parser.add_argument(
         "-t",
         "--type",
-        help="Type of ids to export (all, owned, wishlist or both (owned and wishlist))",
+        help=(
+            "Type of ids to export (all, owned, wishlist or both (owned and wishlist))"
+        ),
         type=str,
     )
     parser.add_argument(
         "-u",
         "--user_id",
-        help="User id to extract the games data from (steamID64). Default: user in config.ini",
+        help=(
+            "User id to extract the games data from (steamID64). "
+            "Default: user in config.ini"
+        ),
         type=str,
     )
     parser.add_argument(

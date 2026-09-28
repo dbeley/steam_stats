@@ -1,27 +1,35 @@
-import logging
-import time
 import argparse
+import csv
 import datetime
 import json
+import logging
+import time
 import urllib.parse
-import csv
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Any
+
 import pandas as pd
 import requests
-from urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
-from pathlib import Path
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from .config import SteamConfig
 from .itad import get_itad_data
-from .requests import get_steam_json, DEFAULT_TIMEOUT
+from .requests import DEFAULT_TIMEOUT, create_session, get_steam_json
 
 logger = logging.getLogger()
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 START_TIME = time.time()
 BATCH_SIZE = 200  # Optimized request allows 200 games per batch
+# Columns exported as nullable integers.
+INT_COLUMNS = (
+    "achieved_achievements",
+    "total_achievements",
+    "total_positive",
+    "total_negative",
+    "total_reviews",
+)
 
 
 def get_achievements_dict(s, api_key, user_id, app_id):
@@ -129,14 +137,12 @@ def extract_game_data_from_store_item(store_item: dict) -> dict:
     Extract game data from the new API format (IStoreBrowseService/GetItems).
     Maps fields from the new API to the format expected by the rest of the code.
     """
-    import datetime
-
     # Map numeric type to string (0 = game, 1 = dlc, 2 = demo, etc.)
     type_map = {0: "game", 1: "dlc", 2: "demo", 3: "mod", 4: "video"}
     numeric_type = store_item.get("type", 0)
     type_str = type_map.get(numeric_type, "game")
 
-    # Convert Unix timestamp to formatted date string
+    # Convert Unix timestamp (UTC) to formatted date string
     release_timestamp = store_item.get("release", {}).get("steam_release_date", 0)
     if (
         release_timestamp
@@ -145,7 +151,7 @@ def extract_game_data_from_store_item(store_item: dict) -> dict:
     ):
         try:
             release_date_formatted = datetime.datetime.fromtimestamp(
-                release_timestamp
+                release_timestamp, tz=datetime.timezone.utc
             ).strftime("%b %d, %Y")
         except (ValueError, OSError):
             release_date_formatted = ""
@@ -191,6 +197,33 @@ def extract_game_data_from_store_item(store_item: dict) -> dict:
     }
 
 
+def normalise_query_summary(query_summary: dict) -> dict:
+    """Normalise the appreviews ``query_summary`` to the exported schema.
+
+    The appreviews endpoint reports ``review_score`` on Steam's 0-9 scale while
+    the GetItems endpoint reports ``percent_positive`` on a 0-100 scale. Both
+    are normalised here to a 0-100 percentage so the ``review_score`` column is
+    consistent regardless of which endpoint produced the data.
+    """
+    total_reviews = (
+        query_summary.get("total_reviews") or query_summary.get("num_reviews") or 0
+    )
+    total_positive = query_summary.get("total_positive")
+    total_negative = query_summary.get("total_negative")
+    if total_reviews and total_positive is not None:
+        review_score = round(total_positive / total_reviews * 100)
+    else:
+        review_score = None
+    return {
+        "num_reviews": query_summary.get("num_reviews"),
+        "review_score": review_score,
+        "review_score_desc": query_summary.get("review_score_desc", ""),
+        "total_positive": total_positive,
+        "total_negative": total_negative,
+        "total_reviews": total_reviews,
+    }
+
+
 def get_reviews_dict(s, game_id):
     url_reviews = (
         f"https://store.steampowered.com/appreviews/{game_id}?json=1&language=all"
@@ -200,7 +233,7 @@ def get_reviews_dict(s, game_id):
     if not query_summary:
         logger.warning("No review summary returned for game %s", game_id)
         return {}
-    return query_summary
+    return normalise_query_summary(query_summary)
 
 
 def process_single_game(
@@ -243,6 +276,8 @@ def process_single_game(
 
             reviews_dict = {
                 "num_reviews": review_count,
+                # percent_positive is already a 0-100 percentage, matching the
+                # normalised value produced by normalise_query_summary().
                 "review_score": percent_positive,
                 "review_score_desc": reviews_summary.get("review_score_label", ""),
                 "total_positive": total_positive,
@@ -304,29 +339,38 @@ def process_single_game(
     return game_dict
 
 
-def create_session():
-    """Create a requests session with retry configuration and connection pooling."""
-    s = requests.Session()
-    retries = Retry(
-        total=5,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET"],
-    )
-    adapter = HTTPAdapter(
-        max_retries=retries,
-        pool_connections=20,
-        pool_maxsize=20,
-    )
-    s.mount("http://", adapter)
-    s.mount("https://", adapter)
-    return s
+def read_appids(path: str) -> list[str]:
+    """Read the ``appid`` column from a tab-separated file as strings.
+
+    Reading as strings keeps IDs like ``70`` from becoming ``70.0`` and raises a
+    clear error when the expected column is missing.
+    """
+    df = pd.read_csv(path, sep="\t", dtype=str)
+    if "appid" not in df.columns:
+        raise ValueError(
+            f"No 'appid' column found in {path}. Columns found: {list(df.columns)}"
+        )
+    return df["appid"].dropna().astype(str).tolist()
+
+
+def build_dataframe(game_dict_list: list[dict]) -> pd.DataFrame:
+    """Build the export DataFrame, tolerating an empty result set.
+
+    Casting an empty frame raises ``KeyError`` on the missing columns, so any
+    absent integer column is created before the cast.
+    """
+    df = pd.DataFrame(game_dict_list)
+    for column in INT_COLUMNS:
+        if column not in df.columns:
+            df[column] = pd.Series(dtype="Int64")
+    return df.astype(dict.fromkeys(INT_COLUMNS, "Int64"))
 
 
 def main():
     args = parse_args()
-    export_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    export_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    now = datetime.datetime.now(datetime.timezone.utc)
+    export_date = now.strftime("%Y-%m-%d")
+    export_time = now.strftime("%Y-%m-%d %H:%M")
 
     if not args.file:
         raise ValueError("-f/--file argument not filled. Exiting.")
@@ -338,10 +382,8 @@ def main():
     user_id = config.get_user_id()
 
     logger.debug("Reading CSV file")
-    df = pd.read_csv(args.file, sep="\t")
-    logger.debug("Columns : %s", df.columns)
-
-    ids = df.appid.tolist()
+    ids = read_appids(args.file)
+    logger.debug("Read %d appids", len(ids))
 
     # Deduplicate if the flag is set
     if args.deduplicate:
@@ -352,16 +394,13 @@ def main():
 
     Path("Exports").mkdir(parents=True, exist_ok=True)
 
-    s = create_session()
+    s = create_session(workers=args.workers)
 
     game_dict_list = []
 
     # Split IDs into batches for the new API
     batches = [ids[i : i + BATCH_SIZE] for i in range(0, len(ids), BATCH_SIZE)]
     logger.info("Processing %d games in %d batches", len(ids), len(batches))
-
-    # Create a single ThreadPoolExecutor for all batches
-    rate_limit_count = 0
 
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         for batch in tqdm(batches, desc="Batches", dynamic_ncols=True):
@@ -400,22 +439,10 @@ def main():
                     game_id = future_to_game[future]
                     logger.error("Error processing game %s: %s", game_id, e)
 
-        if rate_limit_count:
-            logger.info("Rate-limited %d times during this run", rate_limit_count)
+    if not game_dict_list:
+        logger.warning("No game data was collected; writing an empty export.")
 
-        # Free the executor before doing I/O
-        # (exiting the with block does this)
-
-    df = pd.DataFrame(game_dict_list)
-    df = df.astype(
-        {
-            "achieved_achievements": "Int64",
-            "total_achievements": "Int64",
-            "total_positive": "Int64",
-            "total_negative": "Int64",
-            "total_reviews": "Int64",
-        }
-    )
+    df = build_dataframe(game_dict_list)
 
     # Export filename — handle different formats
     base_filename = (
@@ -423,6 +450,8 @@ def main():
         if args.export_filename
         else f"Exports/game_info_{export_date}"
     )
+    # A custom --export_filename may point at another directory.
+    Path(base_filename).parent.mkdir(parents=True, exist_ok=True)
 
     if args.export_json:
         json_filename = f"{base_filename}.json"
@@ -478,6 +507,9 @@ def parse_args():
     )
     parser.set_defaults(export_extra_data=False, deduplicate=False, export_json=False)
     args = parser.parse_args()
+
+    if args.workers < 1:
+        parser.error("--workers must be a positive integer")
 
     logging.basicConfig(level=args.loglevel)
     return args
