@@ -1,6 +1,6 @@
-import os
 import configparser
 import logging
+import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class SteamConfig:
             raise ValueError(
                 "No Steam API key found. Set STEAM_API_KEY environment variable "
                 "or add api_key in [steam] section of config.ini"
-            )
+            ) from None
 
     def get_user_id(self, override: str | None = None) -> str:
         if override:
@@ -61,7 +61,7 @@ class SteamConfig:
             raise ValueError(
                 "No Steam user ID found. Use -u/--user_id flag, set STEAM_USER_ID "
                 "environment variable, or add user_id in [steam] section of config.ini"
-            )
+            ) from None
 
     def get_itad_api_key(self) -> str:
         api_key = os.environ.get("ITAD_API_KEY")
@@ -78,4 +78,4 @@ class SteamConfig:
             raise ValueError(
                 "No ITAD API key found. Set ITAD_API_KEY environment variable "
                 "or add api_key in [itad] section of config.ini"
-            )
+            ) from None

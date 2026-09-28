@@ -1,9 +1,10 @@
-import logging
-import time
 import argparse
 import collections
-import pandas as pd
+import logging
+import time
 from pathlib import Path
+
+import pandas as pd
 
 logger = logging.getLogger()
 start_time = time.time()
@@ -12,7 +13,7 @@ start_time = time.time()
 def read_from_file(filename: str):
     if not Path(filename).is_file():
         raise FileNotFoundError("%s is not a valid file.", filename)
-    with open(filename, "r") as f:
+    with open(filename) as f:
         content = f.read().splitlines()
     return content
 

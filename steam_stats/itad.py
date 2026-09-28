@@ -1,4 +1,5 @@
 import logging
+
 from .requests import get_json
 
 logger = logging.getLogger(__name__)

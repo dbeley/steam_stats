@@ -1,11 +1,12 @@
-import logging
-import time
 import argparse
 import csv
-import requests
-import pandas as pd
-from bs4 import BeautifulSoup
+import logging
+import time
 from pathlib import Path
+
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger()
 START_TIME = time.time()
@@ -14,7 +15,7 @@ START_TIME = time.time()
 def read_soup_from_fs(filename: str):
     if not Path(filename).is_file():
         raise FileNotFoundError(f"{filename} is not a valid file.")
-    with open(filename, "r") as f:
+    with open(filename) as f:
         content = f.read()
     return BeautifulSoup(content, "html.parser")
 
