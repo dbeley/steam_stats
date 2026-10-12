@@ -268,6 +268,50 @@ def test_process_single_game_achievements(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# build_export_paths
+# ---------------------------------------------------------------------------
+
+
+def test_build_export_paths_appends_missing_extension():
+    csv_path, json_path = main_mod.build_export_paths("game_info", "2024-01-01")
+    assert csv_path == "game_info.csv"
+    assert json_path == "game_info.json"
+
+
+def test_build_export_paths_keeps_explicit_extension():
+    csv_path, json_path = main_mod.build_export_paths("game_info.csv", "2024-01-01")
+    assert csv_path == "game_info.csv"
+    assert json_path == "game_info.json"
+
+
+def test_build_export_paths_does_not_double_extension_case_insensitively():
+    csv_path, _ = main_mod.build_export_paths("game_info.CSV", "2024-01-01")
+    assert csv_path == "game_info.CSV"
+
+
+def test_build_export_paths_keeps_inner_dots():
+    csv_path, _ = main_mod.build_export_paths("Exports/game_info_v1.0", "2024-01-01")
+    assert csv_path == "Exports/game_info_v1.0.csv"
+
+
+def test_build_export_paths_default_uses_export_date():
+    csv_path, json_path = main_mod.build_export_paths(None, "2024-01-01")
+    assert csv_path == "Exports/game_info_2024-01-01.csv"
+    assert json_path == "Exports/game_info_2024-01-01.json"
+
+
+def test_build_export_paths_empty_string_falls_back_to_default():
+    csv_path, _ = main_mod.build_export_paths("", "2024-01-01")
+    assert csv_path == "Exports/game_info_2024-01-01.csv"
+
+
+def test_build_export_paths_keeps_directory():
+    csv_path, json_path = main_mod.build_export_paths("out/steam.csv", "2024-01-01")
+    assert csv_path == "out/steam.csv"
+    assert json_path == "out/steam.json"
+
+
+# ---------------------------------------------------------------------------
 # parse_args
 # ---------------------------------------------------------------------------
 

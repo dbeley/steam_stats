@@ -22,6 +22,7 @@ logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 START_TIME = time.time()
 BATCH_SIZE = 200  # Optimized request allows 200 games per batch
+CSV_EXTENSION = ".csv"
 # Columns exported as nullable integers.
 INT_COLUMNS = (
     "achieved_achievements",
@@ -366,6 +367,23 @@ def build_dataframe(game_dict_list: list[dict]) -> pd.DataFrame:
     return df.astype(dict.fromkeys(INT_COLUMNS, "Int64"))
 
 
+def build_export_paths(
+    export_filename: str | None, export_date: str
+) -> tuple[str, str]:
+    """Resolve the CSV and JSON export paths.
+
+    ``--export_filename`` accepts either a base name (``game_info``) or a full
+    filename (``game_info.csv``). The ``.csv`` extension is appended only when
+    it is missing, so an explicit extension is never doubled into
+    ``game_info.csv.csv``. The JSON path always replaces the CSV extension, so
+    ``--export_json`` writes ``game_info.json`` next to ``game_info.csv``.
+    """
+    base = export_filename or f"Exports/game_info_{export_date}"
+    if not base.lower().endswith(CSV_EXTENSION):
+        base = f"{base}{CSV_EXTENSION}"
+    return base, f"{base[: -len(CSV_EXTENSION)]}.json"
+
+
 def main():
     args = parse_args()
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -444,22 +462,16 @@ def main():
 
     df = build_dataframe(game_dict_list)
 
-    # Export filename — handle different formats
-    base_filename = (
-        args.export_filename
-        if args.export_filename
-        else f"Exports/game_info_{export_date}"
-    )
+    # Export filename — accept a base name or a full filename
+    csv_filename, json_filename = build_export_paths(args.export_filename, export_date)
     # A custom --export_filename may point at another directory.
-    Path(base_filename).parent.mkdir(parents=True, exist_ok=True)
+    Path(csv_filename).parent.mkdir(parents=True, exist_ok=True)
 
     if args.export_json:
-        json_filename = f"{base_filename}.json"
         logger.debug("Writing JSON export %s.", json_filename)
         df.to_json(json_filename, orient="records", indent=2)
         logger.info("JSON export written to %s", json_filename)
 
-    csv_filename = f"{base_filename}.csv"
     logger.debug("Writing CSV export %s.", csv_filename)
     df.to_csv(csv_filename, sep="\t", index=False, quoting=csv.QUOTE_MINIMAL)
     logger.info("CSV export written to %s", csv_filename)

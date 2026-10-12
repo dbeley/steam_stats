@@ -88,7 +88,10 @@ optional arguments:
   --debug                       Display debugging information
   -f FILE, --file FILE          File containing the appids to parse
   --export_filename EXPORT_FILENAME
-                                Override export filename (without extension)
+                                Override export filename. A full filename
+                                (game_info.csv) or a base name (game_info) both
+                                write game_info.csv; a .csv extension is never
+                                doubled
   --export_extra_data           Enable extra data fetching (ITAD prices)
   --workers WORKERS             Number of concurrent workers (default: 10)
   --deduplicate                 Remove duplicate appids before processing
